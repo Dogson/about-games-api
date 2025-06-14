@@ -18,12 +18,12 @@ export class Channel extends Model {
   @Unique
   @AllowNull(false)
   @Column(DataType.STRING(255))
-  name: string;
+  name!: string;
 
   @Unique
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_id' })
-  youtubeId: string;
+  youtubeId!: string;
 
   @AllowNull(true)
   @Column(DataType.TEXT)
@@ -35,8 +35,8 @@ export class Channel extends Model {
 
   @AllowNull(false)
   @Column(DataType.STRING(45))
-  language: string;
+  language!: string;
 
   @HasMany(() => Video)
-  videos: Video[];
+  videos!: Video[];
 }

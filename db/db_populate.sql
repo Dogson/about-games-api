@@ -52,14 +52,13 @@ INSERT INTO yt_channel (
 
 -- Populate videos related to yt_channels
 INSERT INTO videos (
-    yt_channel_id, title, description, release_date, validated, gamesFound
+    yt_channel_id, title, description, release_date, validated
 ) VALUES
       (
           1,
           'Cyber Adventure Official Trailer',
           'Trailer for Cyber Adventure game, released in 2024.',
           '2024-10-01',
-          1,
           1
       ),
       (
@@ -67,7 +66,6 @@ INSERT INTO videos (
           'IGN Fantasy Quest Review',
           'In-depth review of Fantasy Quest game.',
           '2023-07-01',
-          1,
           1
       ),
       (
@@ -75,8 +73,7 @@ INSERT INTO videos (
           'Space Battle Gameplay Demo',
           'Demo video showing Space Battle gameplay.',
           '2025-02-15',
-          0,
-          1
+          0
       );
 
 -- Link videos and games

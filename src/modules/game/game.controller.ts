@@ -6,11 +6,13 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { GameService } from './game.service';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import Routes from '../../routes.config';
+import type { FindAllGamesDto } from './dto/find-all-games.dto';
 
 @Controller(Routes.GAMES)
 export class GameController {
@@ -22,8 +24,9 @@ export class GameController {
   }
 
   @Get()
-  findAll() {
-    return this.gameService.findAll();
+  findAll(@Query() query: FindAllGamesDto) {
+    const { search, page, limit } = query;
+    return this.gameService.findAll({ search, page, limit });
   }
 
   @Get(':id')

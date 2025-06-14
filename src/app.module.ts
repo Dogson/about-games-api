@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { ChannelModule } from './modules/channel/channel.module';
 import { VideoModule } from './modules/video/video.module';
-import { CompanyModule } from './modules/company/company.module';
 import { UserModule } from './modules/user/user.module';
 import { GameModule } from './modules/game/game.module';
 
@@ -35,7 +34,6 @@ import { GameModule } from './modules/game/game.module';
     }),
     ChannelModule,
     VideoModule,
-    CompanyModule,
     UserModule,
     GameModule,
   ],
