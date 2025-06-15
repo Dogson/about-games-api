@@ -7,6 +7,7 @@ import { ChannelModule } from './modules/channel/channel.module';
 import { VideoModule } from './modules/video/video.module';
 import { UserModule } from './modules/user/user.module';
 import { GameModule } from './modules/game/game.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -14,10 +15,6 @@ import { GameModule } from './modules/game/game.module';
     SequelizeModule.forRootAsync({
       imports: [ConfigModule], // ensure ConfigModule is imported here too
       useFactory: (configService: ConfigService) => {
-        console.log(configService.get<string>('DB_HOST'));
-        console.log(configService.get<string>('DB_USERNAME'));
-        console.log(configService.get<string>('DB_PASSWORD'));
-        console.log(configService.get<string>('DB_DATABASE_NAME'));
         return {
           autoLoadModels: true,
           synchronize: true,
@@ -36,6 +33,7 @@ import { GameModule } from './modules/game/game.module';
     VideoModule,
     UserModule,
     GameModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

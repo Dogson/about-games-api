@@ -14,22 +14,26 @@ import {
 })
 export class User extends Model {
   @AllowNull(false)
+  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+  declare id: number;
+
+  @AllowNull(false)
   @Column({
     type: DataType.STRING(50),
   })
-  username!: string;
+  declare username: string;
 
   @AllowNull(false)
   @Column({
     type: DataType.STRING(255),
     field: 'password_hash',
   })
-  passwordHash!: string;
+  declare passwordHash: string;
 
   @AllowNull(false)
   @Default(1)
   @Column({
     type: DataType.BOOLEAN,
   })
-  admin!: boolean;
+  declare admin: boolean;
 }

@@ -86,6 +86,4 @@ VALUES
 -- Populate users
 INSERT INTO users (username, password_hash, admin)
 VALUES
-    ('admin', 'hashedpassword123', 1),
-    ('user1', 'hashedpassword456', 0),
-    ('user2', 'hashedpassword789', 0);
+    ('admin', '$2a$10$P5exvoUG99CZF76moA2OPuDyHu1manW52uQ08xKrDNF69m1wbbFki', 1)  -- Password: password

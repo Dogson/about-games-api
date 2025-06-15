@@ -15,6 +15,10 @@ import { Video } from '../../video/entities/video.entity';
   updatedAt: 'updated_at',
 })
 export class Channel extends Model {
+  @AllowNull(false)
+  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+  declare id: number;
+
   @Unique
   @AllowNull(false)
   @Column(DataType.STRING(255))

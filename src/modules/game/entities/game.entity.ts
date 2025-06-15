@@ -15,6 +15,10 @@ import { GamesHasCompanies } from '../../../db/many-to-many/games-has-companies.
 @Table({ tableName: 'games', createdAt: 'created_at', updatedAt: 'updated_at' })
 export class Game extends Model<Game> {
   @AllowNull(false)
+  @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
+  declare id: number;
+
+  @AllowNull(false)
   @Column({ type: DataType.INTEGER, field: 'igdb_id' })
   igdbId!: number;
 
