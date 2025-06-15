@@ -45,17 +45,18 @@ export class ChannelService {
     id: number,
     updateChannelDto: UpdateChannelDto,
   ): Promise<Channel> {
-    const [affectedRows] = await this.channelModel.update(updateChannelDto, {
+    const existingChannel = await this.channelModel.findByPk(id);
+
+    if (!existingChannel) {
+      throw new NotFoundException(`Channel with id ${id} not found`);
+    }
+
+    await this.channelModel.update(updateChannelDto, {
       where: { id },
     });
-    if (affectedRows === 0) {
-      throw new NotFoundException(`Channel with id ${id} not found`);
-    }
-    const channel = await this.channelModel.findByPk(id);
-    if (!channel) {
-      throw new NotFoundException(`Channel with id ${id} not found`);
-    }
-    return channel;
+
+    const updatedChannel = await this.channelModel.findByPk(id);
+    return updatedChannel!;
   }
 
   async remove(id: number): Promise<void> {

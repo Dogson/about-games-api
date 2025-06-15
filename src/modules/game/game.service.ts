@@ -87,20 +87,18 @@ export class GameService {
   }
 
   async update(id: number, updateGameDto: UpdateGameDto): Promise<Game> {
-    const [affectedRows] = await this.gameModel.update(updateGameDto, {
+    const existingGame = await this.gameModel.findByPk(id);
+
+    if (!existingGame) {
+      throw new NotFoundException(`Game with id ${id} not found`);
+    }
+
+    await this.gameModel.update(updateGameDto, {
       where: { id },
     });
 
-    if (affectedRows === 0) {
-      throw new NotFoundException(`Game with id ${id} not found`);
-    }
-
-    const game = await this.gameModel.findByPk(id);
-    if (!game) {
-      throw new NotFoundException(`Game with id ${id} not found`);
-    }
-
-    return game;
+    const updatedGame = await this.gameModel.findByPk(id);
+    return updatedGame!;
   }
 
   async remove(id: number): Promise<void> {

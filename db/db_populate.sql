@@ -19,7 +19,7 @@
 
     -- 3. Insert videos linked to yt_channels
     INSERT INTO videos
-    (yt_channel_id, title, description, release_date, validated, gamesFoundCount, gamesCount)
+    (yt_channel_id, title, description, release_date, validated, games_found_count, games_count)
     VALUES
         ((SELECT id FROM yt_channel WHERE name = 'ChannelOne'), 'Video 1 for ChannelOne', 'Desc 1', '2023-05-10', 1, 1, 1),
         ((SELECT id FROM yt_channel WHERE name = 'ChannelTwo'), 'Video 1 for ChannelTwo', 'Desc 2', '2023-06-01', 0, 0, 0);

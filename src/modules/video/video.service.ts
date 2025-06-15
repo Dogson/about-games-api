@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { UpdateVideoDto } from './dto/update-video.dto';
 import { InjectModel } from '@nestjs/sequelize';
@@ -13,19 +13,16 @@ export class VideoService {
     private videoModel: typeof Video,
   ) {}
 
-  create(createVideoDto: CreateVideoDto) {
-    console.log(createVideoDto);
-    return 'This action adds a new video';
+  async create(createVideoDto: CreateVideoDto): Promise<Video> {
+    return await this.videoModel.create({ ...createVideoDto });
   }
 
-  findAll() {
-    return this.videoModel.findAll({
+  async findAll(): Promise<Video[]> {
+    return await this.videoModel.findAll({
       include: [
         {
           model: Game,
-          through: {
-            attributes: [],
-          },
+          through: { attributes: [] },
         },
         {
           model: Channel,
@@ -34,16 +31,57 @@ export class VideoService {
     });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} video`;
+  async findOne(id: number): Promise<Video> {
+    const video = await this.videoModel.findByPk(id, {
+      include: [
+        {
+          model: Game,
+          through: { attributes: [] },
+        },
+        {
+          model: Channel,
+        },
+      ],
+    });
+
+    if (!video) {
+      throw new NotFoundException(`Video with id ${id} not found`);
+    }
+
+    return video;
   }
 
-  update(id: number, updateVideoDto: UpdateVideoDto) {
-    console.log(updateVideoDto);
-    return `This action updates a #${id} video`;
+  async update(id: number, updateVideoDto: UpdateVideoDto): Promise<Video> {
+    const existingVideo = await this.videoModel.findByPk(id);
+
+    if (!existingVideo) {
+      throw new NotFoundException(`Video with id ${id} not found`);
+    }
+
+    await this.videoModel.update(updateVideoDto, {
+      where: { id },
+    });
+
+    const updatedVideo = await this.videoModel.findByPk(id, {
+      include: [
+        {
+          model: Game,
+          through: { attributes: [] },
+        },
+        {
+          model: Channel,
+        },
+      ],
+    });
+
+    return updatedVideo!;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} video`;
+  async remove(id: number): Promise<void> {
+    const deletedRows = await this.videoModel.destroy({ where: { id } });
+
+    if (deletedRows === 0) {
+      throw new NotFoundException(`Video with id ${id} not found`);
+    }
   }
 }

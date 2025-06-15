@@ -35,6 +35,18 @@ export class Video extends Model {
   @Column({ type: DataType.DATE, field: 'release_date' })
   releaseDate?: Date;
 
+  @AllowNull(true)
+  @Column(DataType.BOOLEAN)
+  validated?: boolean;
+
+  @AllowNull(true)
+  @Column({ type: DataType.INTEGER, field: 'games_found_count' })
+  gamesFoundCount?: number;
+
+  @AllowNull(true)
+  @Column({ type: DataType.INTEGER, field: 'games_count' })
+  gamesCount?: number;
+
   @BelongsTo(() => Channel)
   ytChannel!: Channel;
 
