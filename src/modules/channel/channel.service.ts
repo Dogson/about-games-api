@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { InjectModel } from '@nestjs/sequelize';
@@ -13,9 +13,6 @@ export class ChannelService {
   ) {}
 
   async create(createChannelDto: CreateChannelDto): Promise<Channel> {
-    console.log(createChannelDto);
-
-    // Conversion manuelle des tableaux en JSON string pour Sequelize (base MySQL)
     const channelData = {
       ...createChannelDto,
       ignoreEpisodesContaining: JSON.stringify(
@@ -28,22 +25,43 @@ export class ChannelService {
     return await this.channelModel.create(channelData);
   }
 
-  findAll() {
-    return this.channelModel.findAll({
+  async findAll(): Promise<Channel[]> {
+    return await this.channelModel.findAll({
       include: [{ model: Video }],
     });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} channel`;
+  async findOne(id: number): Promise<Channel> {
+    const channel = await this.channelModel.findByPk(id, {
+      include: [{ model: Video }],
+    });
+    if (!channel) {
+      throw new NotFoundException(`Channel with id ${id} not found`);
+    }
+    return channel;
   }
 
-  async update(id: number, updateChannelDto: UpdateChannelDto) {
-    await this.channelModel.update(updateChannelDto, { where: { id } });
-    return await this.channelModel.findByPk(id);
+  async update(
+    id: number,
+    updateChannelDto: UpdateChannelDto,
+  ): Promise<Channel> {
+    const [affectedRows] = await this.channelModel.update(updateChannelDto, {
+      where: { id },
+    });
+    if (affectedRows === 0) {
+      throw new NotFoundException(`Channel with id ${id} not found`);
+    }
+    const channel = await this.channelModel.findByPk(id);
+    if (!channel) {
+      throw new NotFoundException(`Channel with id ${id} not found`);
+    }
+    return channel;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} channel`;
+  async remove(id: number): Promise<void> {
+    const deletedRows = await this.channelModel.destroy({ where: { id } });
+    if (deletedRows === 0) {
+      throw new NotFoundException(`Channel with id ${id} not found`);
+    }
   }
 }

@@ -42,6 +42,9 @@ async function main() {
   console.log('Running schema SQL...');
   await runSqlFile(connection, './db/db_schema.sql');
 
+  console.log('Running SQL referential actions...');
+  await runSqlFile(connection, './db/db_referential_actions.sql');
+
   console.log('Running populate SQL...');
   await runSqlFile(connection, './db/db_populate.sql');
 
