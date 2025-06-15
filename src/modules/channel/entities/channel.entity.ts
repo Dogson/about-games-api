@@ -27,6 +27,11 @@ export class Channel extends Model {
 
   @Unique
   @AllowNull(false)
+  @Column({ type: DataType.STRING(255), field: 'youtube_handle' })
+  youtubeHandle!: string;
+
+  @Unique
+  @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_id' })
   youtubeId!: string;
 

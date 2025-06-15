@@ -17,7 +17,7 @@ export class CreateVideoDto {
 
   @IsNotEmpty()
   @IsString()
-  youtubeId!: string;
+  youtubeHandle!: string;
 
   @IsNotEmpty()
   @IsString()

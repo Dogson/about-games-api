@@ -4,26 +4,29 @@ import { UpdateChannelDto } from './dto/update-channel.dto';
 import { InjectModel } from '@nestjs/sequelize';
 import { Channel } from './entities/channel.entity';
 import { Video } from '../video/entities/video.entity';
+import { YoutubeService } from '../youtube/youtube.service';
 
 @Injectable()
 export class ChannelService {
   constructor(
     @InjectModel(Channel)
     private channelModel: typeof Channel,
+    private readonly youtubeService: YoutubeService,
   ) {}
 
   async create(createChannelDto: CreateChannelDto): Promise<Channel> {
-    // todo should get this stuff from a youtube.service
-    const stuffToGetFromYoutubeApi = {
-      thumbnail: 'Blabli',
-      name: Date.now(),
-      description: 'blabla',
-      language: 'fr',
-    };
+    const channelInfo = await this.youtubeService.getYtChannelInfosByHandle(
+      createChannelDto.youtubeHandle,
+    );
+
+    console.log(channelInfo);
 
     return await this.channelModel.create({
       ...createChannelDto,
-      ...stuffToGetFromYoutubeApi,
+      youtubeId: channelInfo.id,
+      name: channelInfo.snippet.title,
+      description: channelInfo.snippet.description,
+      thumbnailUrl: channelInfo.snippet.thumbnails.default.url,
     });
   }
 

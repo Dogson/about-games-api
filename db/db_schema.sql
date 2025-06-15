@@ -49,6 +49,7 @@ DROP TABLE IF EXISTS `about_games_db`.`yt_channel` ;
 CREATE TABLE IF NOT EXISTS `about_games_db`.`yt_channel` (
                                                              `id` INT NOT NULL AUTO_INCREMENT,
                                                              `name` VARCHAR(255) NOT NULL,
+    `youtube_handle` VARCHAR(255) NOT NULL,
     `youtube_id` VARCHAR(255) NOT NULL,
     `description` TEXT NULL,
     `thumbnail` TEXT NULL,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS `about_games_db`.`yt_channel` (
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE INDEX `name_UNIQUE` (`name` ASC) VISIBLE,
+    UNIQUE INDEX `youtube_handle_UNIQUE` (`youtube_handle` ASC) VISIBLE,
     UNIQUE INDEX `youtube_id_UNIQUE` (`youtube_id` ASC) VISIBLE)
     ENGINE = InnoDB;
 

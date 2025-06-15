@@ -8,6 +8,7 @@ import { VideoModule } from './modules/video/video.module';
 import { UserModule } from './modules/user/user.module';
 import { GameModule } from './modules/game/game.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { YoutubeService } from './modules/youtube/youtube.service';
 
 @Module({
   imports: [
@@ -36,6 +37,6 @@ import { AuthModule } from './modules/auth/auth.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, YoutubeService],
 })
 export class AppModule {}
