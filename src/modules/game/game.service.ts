@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { Game } from './entities/game.entity';
@@ -16,9 +16,8 @@ export class GameService {
     private gameModel: typeof Game,
   ) {}
 
-  create(createGameDto: CreateGameDto) {
-    console.log(createGameDto);
-    return 'This action adds a new game';
+  async create(createGameDto: CreateGameDto): Promise<Game> {
+    return await this.gameModel.create({ ...createGameDto });
   }
 
   async findAll(findAllGamesDto: FindAllGamesDto) {
@@ -33,21 +32,26 @@ export class GameService {
         )
       : undefined;
 
+    const attributes = {
+      include: [
+        [
+          Sequelize.literal(`(
+        SELECT COUNT(*)
+        FROM videos_has_games AS vhg
+        WHERE vhg.game_id = Game.id
+      )`),
+          'videosCount',
+        ],
+        ...(relevanceSearch ? [[relevanceSearch, 'relevance']] : []),
+      ] as [string | ReturnType<typeof Sequelize.literal>, string][], // ✅ Type assertion avoids extra type definition
+    };
+
     const result = await this.gameModel.findAndCountAll({
-      attributes: {
-        include: relevanceSearch ? [[relevanceSearch, 'relevance']] : [],
-      },
+      attributes,
       where: relevanceSearch,
       order: relevanceSearch
         ? [[Sequelize.col('relevance'), 'DESC']]
         : [['updated_at', 'DESC']],
-      include: [
-        {
-          model: Video,
-          through: { attributes: [] },
-          include: [{ model: Channel }],
-        },
-      ],
       offset,
       limit,
       distinct: true,
@@ -66,16 +70,43 @@ export class GameService {
     return `'${input.replace(/'/g, "\\'")}'`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} game`;
+  async findOne(id: number): Promise<Game> {
+    const game = await this.gameModel.findByPk(id, {
+      include: [
+        {
+          model: Video,
+          through: { attributes: [] },
+          include: [{ model: Channel }],
+        },
+      ],
+    });
+    if (!game) {
+      throw new NotFoundException(`Game with id ${id} not found`);
+    }
+    return game;
   }
 
-  update(id: number, updateGameDto: UpdateGameDto) {
-    console.log(updateGameDto);
-    return `This action updates a #${id} game`;
+  async update(id: number, updateGameDto: UpdateGameDto): Promise<Game> {
+    const [affectedRows] = await this.gameModel.update(updateGameDto, {
+      where: { id },
+    });
+
+    if (affectedRows === 0) {
+      throw new NotFoundException(`Game with id ${id} not found`);
+    }
+
+    const game = await this.gameModel.findByPk(id);
+    if (!game) {
+      throw new NotFoundException(`Game with id ${id} not found`);
+    }
+
+    return game;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} game`;
+  async remove(id: number): Promise<void> {
+    const deletedRows = await this.gameModel.destroy({ where: { id } });
+    if (deletedRows === 0) {
+      throw new NotFoundException(`Game with id ${id} not found`);
+    }
   }
 }
