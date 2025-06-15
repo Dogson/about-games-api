@@ -10,11 +10,11 @@ export class FindAllGamesDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page!: number;
+  page?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  limit!: number;
+  limit?: number;
 }

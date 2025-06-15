@@ -10,8 +10,9 @@ import {
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import Routes from '../../routes.config';
 
-@Controller('user')
+@Controller(Routes.USERS)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 

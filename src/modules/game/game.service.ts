@@ -41,7 +41,7 @@ export class GameService {
       where: relevanceSearch,
       order: relevanceSearch
         ? [[Sequelize.col('relevance'), 'DESC']]
-        : [['updated_on', 'DESC']],
+        : [['updated_at', 'DESC']],
       include: [
         {
           model: Video,

@@ -12,8 +12,9 @@ import { ChannelService } from './channel.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import Routes from '../../routes.config';
 
-@Controller('channel')
+@Controller(Routes.CHANNELS)
 export class ChannelController {
   constructor(private readonly channelService: ChannelService) {}
 
