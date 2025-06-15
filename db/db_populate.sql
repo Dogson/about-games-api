@@ -19,10 +19,10 @@
 
     -- 3. Insert videos linked to yt_channels
     INSERT INTO videos
-    (yt_channel_id, title, description, release_date, validated, games_found_count, games_count)
+    (yt_channel_id, title, youtube_id, description, release_date, validated, games_found_count, games_count)
     VALUES
-        ((SELECT id FROM yt_channel WHERE name = 'ChannelOne'), 'Video 1 for ChannelOne', 'Desc 1', '2023-05-10', 1, 1, 1),
-        ((SELECT id FROM yt_channel WHERE name = 'ChannelTwo'), 'Video 1 for ChannelTwo', 'Desc 2', '2023-06-01', 0, 0, 0);
+        ((SELECT id FROM yt_channel WHERE name = 'ChannelOne'), 'Video 1 for ChannelOne', 'HHDHJJJDJDJDJ', 'Desc 1', '2023-05-10', 1, 1, 1),
+        ((SELECT id FROM yt_channel WHERE name = 'ChannelTwo'), 'Video 1 for ChannelTwo', 'JJKHJKHKDJ','Desc 2', '2023-06-01', 0, 0, 0);
 
     -- 4. Link videos to games in pivot table
     INSERT INTO videos_has_games (video_id, game_id)

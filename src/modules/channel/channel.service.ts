@@ -13,16 +13,18 @@ export class ChannelService {
   ) {}
 
   async create(createChannelDto: CreateChannelDto): Promise<Channel> {
-    const channelData = {
-      ...createChannelDto,
-      ignoreEpisodesContaining: JSON.stringify(
-        createChannelDto.ignoreEpisodesContaining,
-      ),
-      ignoreSearchIn: JSON.stringify(createChannelDto.ignoreSearchIn),
-      endParsingAfter: JSON.stringify(createChannelDto.endParsingAfter),
+    // todo should get this stuff from a youtube.service
+    const stuffToGetFromYoutubeApi = {
+      thumbnail: 'Blabli',
+      name: Date.now(),
+      description: 'blabla',
+      language: 'fr',
     };
 
-    return await this.channelModel.create(channelData);
+    return await this.channelModel.create({
+      ...createChannelDto,
+      ...stuffToGetFromYoutubeApi,
+    });
   }
 
   async findAll(): Promise<Channel[]> {

@@ -28,6 +28,10 @@ export class Video extends Model {
   title!: string;
 
   @AllowNull(false)
+  @Column({ type: DataType.TEXT, field: 'youtube_id' })
+  youtubeId!: string;
+
+  @AllowNull(false)
   @Column(DataType.TEXT)
   description!: string;
 
