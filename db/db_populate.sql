@@ -1,89 +1,38 @@
+USE
+about_games_db;
+
 USE about_games_db;
 
--- Populate games
-INSERT INTO games (igdb_id, title, release_date, cover_img, boxart_img)
+-- 1. Insert YouTube channels
+INSERT INTO yt_channel
+(name, youtube_id, description, thumbnail, language, parsing_attribute, ignore_episodes_containing, ignore_search_in, end_parsing_after)
 VALUES
-    (101, 'Cyber Adventure', '2024-11-15', 'https://example.com/cyber_cover.jpg', 'https://example.com/cyber_boxart.jpg'),
-    (102, 'Fantasy Quest', '2023-06-20', NULL, 'https://example.com/fantasy_boxart.jpg'),
-    (103, 'Space Battle', '2025-01-10', 'https://example.com/space_cover.jpg', 'https://example.com/space_boxart.jpg');
+    ('ChannelOne', 'UC1234567890', 'Description for ChannelOne', 'http://example.com/thumb1.jpg', 'en', 'attr1', '[]', '[]', '[]'),
+    ('ChannelTwo', 'UC0987654321', 'Description for ChannelTwo', 'http://example.com/thumb2.jpg', 'fr', 'attr2', '[]', '[]', '[]');
 
--- Populate companies
-INSERT INTO companies (igdb_id, name)
+-- 2. Insert games
+INSERT INTO games
+(igdb_id, title, release_date, companies, cover_img, boxart_img)
 VALUES
-    (201, 'MegaGames Studio'),
-    (202, 'Epic Creators Inc.'),
-    (203, 'SpaceWorks');
+    (101, 'Game One', '2023-05-01', '["Company A", "Company B"]', 'http://example.com/game1cover.jpg', 'http://example.com/game1boxart.jpg'),
+    (102, 'Game Two', '2022-11-15', '["Company C"]', 'http://example.com/game2cover.jpg', 'http://example.com/game2boxart.jpg');
 
--- Link games and companies
-INSERT INTO games_has_companies (game_id, company_id)
+-- 3. Insert videos linked to yt_channels
+INSERT INTO videos
+(yt_channel_id, title, description, release_date, validated, gamesFoundCount, gamesCount)
 VALUES
-    (1, 1),  -- Cyber Adventure made by MegaGames Studio
-    (2, 2),  -- Fantasy Quest by Epic Creators Inc.
-    (3, 3),  -- Space Battle by SpaceWorks
-    (3, 2);  -- Space Battle also by MegaGames Studio
+    ((SELECT id FROM yt_channel WHERE name = 'ChannelOne'), 'Video 1 for ChannelOne', 'Desc 1', '2023-05-10', 1, 1, 1),
+    ((SELECT id FROM yt_channel WHERE name = 'ChannelTwo'), 'Video 1 for ChannelTwo', 'Desc 2', '2023-06-01', 0, 0, 0);
 
--- Populate yt_channel with parsing_attribute and regexp arrays as JSON strings
-INSERT INTO yt_channel (
-    name, youtube_id, description, thumbnail, language, parsing_attribute,
-    ignores_episodes_containing, ignore_search_in, end_parsing_after
-) VALUES
-      (
-          'GameSpot',
-          'UCQ0UDLQCjY0rmuxCDE38FGg',
-          'Official GameSpot channel covering video games, news, and reviews.',
-          'https://example.com/thumbnail_gamespot.jpg',
-          'en',
-          'title',
-          '["\\\\btrailer\\\\b", "\\\\bunboxing\\\\b"]',
-          '["\\\\bspoiler\\\\b", "\\\\breview\\\\b"]',
-          NULL
-      ),
-      (
-          'IGN',
-          'UCrYmtJBtLdtm2ov84ulV-yg',
-          'IGN provides videos about games, movies, and entertainment.',
-          'https://example.com/thumbnail_ign.jpg',
-          'en',
-          'description',
-          '["\\\\bpreview\\\\b", "\\\\bdemo\\\\b"]',
-          '["\\\\badvertisement\\\\b"]',
-          NULL
-      );
-
--- Populate videos related to yt_channels
-INSERT INTO videos (
-    yt_channel_id, title, description, release_date, validated
-) VALUES
-      (
-          1,
-          'Cyber Adventure Official Trailer',
-          'Trailer for Cyber Adventure game, released in 2024.',
-          '2024-10-01',
-          1
-      ),
-      (
-          2,
-          'IGN Fantasy Quest Review',
-          'In-depth review of Fantasy Quest game.',
-          '2023-07-01',
-          1
-      ),
-      (
-          2,
-          'Space Battle Gameplay Demo',
-          'Demo video showing Space Battle gameplay.',
-          '2025-02-15',
-          0
-      );
-
--- Link videos and games
+-- 4. Link videos to games in pivot table
 INSERT INTO videos_has_games (video_id, game_id)
 VALUES
-    (1, 1), -- Cyber Adventure Trailer linked to Cyber Adventure
-    (2, 2), -- IGN review linked to Fantasy Quest
-    (3, 3); -- Space Battle demo linked to Space Battle
+    ((SELECT v.id FROM videos v JOIN yt_channel c ON v.yt_channel_id = c.id WHERE c.name = 'ChannelOne' AND v.title = 'Video 1 for ChannelOne'),
+     (SELECT g.id FROM games g WHERE g.title = 'Game One')),
+
+    ((SELECT v.id FROM videos v JOIN yt_channel c ON v.yt_channel_id = c.id WHERE c.name = 'ChannelTwo' AND v.title = 'Video 1 for ChannelTwo'),
+     (SELECT g.id FROM games g WHERE g.title = 'Game Two'));
 
 -- Populate users
 INSERT INTO users (username, password_hash, admin)
-VALUES
-    ('admin', '$2a$10$P5exvoUG99CZF76moA2OPuDyHu1manW52uQ08xKrDNF69m1wbbFki', 1)  -- Password: password
+VALUES ('admin', '$2a$10$P5exvoUG99CZF76moA2OPuDyHu1manW52uQ08xKrDNF69m1wbbFki', 1) -- Password: password

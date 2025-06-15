@@ -12,9 +12,20 @@ export class ChannelService {
     private channelModel: typeof Channel,
   ) {}
 
-  create(createChannelDto: CreateChannelDto) {
+  async create(createChannelDto: CreateChannelDto): Promise<Channel> {
     console.log(createChannelDto);
-    return 'This action adds a new channel';
+
+    // Conversion manuelle des tableaux en JSON string pour Sequelize (base MySQL)
+    const channelData = {
+      ...createChannelDto,
+      ignoreEpisodesContaining: JSON.stringify(
+        createChannelDto.ignoreEpisodesContaining,
+      ),
+      ignoreSearchIn: JSON.stringify(createChannelDto.ignoreSearchIn),
+      endParsingAfter: JSON.stringify(createChannelDto.endParsingAfter),
+    };
+
+    return await this.channelModel.create(channelData);
   }
 
   findAll() {
@@ -27,9 +38,9 @@ export class ChannelService {
     return `This action returns a #${id} channel`;
   }
 
-  update(id: number, updateChannelDto: UpdateChannelDto) {
-    console.log(updateChannelDto);
-    return `This action updates a #${id} channel`;
+  async update(id: number, updateChannelDto: UpdateChannelDto) {
+    await this.channelModel.update(updateChannelDto, { where: { id } });
+    return await this.channelModel.findByPk(id);
   }
 
   remove(id: number) {

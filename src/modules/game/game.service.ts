@@ -4,7 +4,6 @@ import { UpdateGameDto } from './dto/update-game.dto';
 import { Game } from './entities/game.entity';
 import { InjectModel } from '@nestjs/sequelize';
 import { Video } from '../video/entities/video.entity';
-import { Company } from '../company/entities/company.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import type { FindAllGamesDto } from './dto/find-all-games.dto';
 import { Sequelize } from 'sequelize';
@@ -47,10 +46,6 @@ export class GameService {
           model: Video,
           through: { attributes: [] },
           include: [{ model: Channel }],
-        },
-        {
-          model: Company,
-          through: { attributes: [] },
         },
       ],
       offset,

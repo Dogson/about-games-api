@@ -9,11 +9,10 @@ import {
 } from 'sequelize-typescript';
 import { Video } from '../../video/entities/video.entity';
 import { VideosHasGames } from '../../../db/many-to-many/videos-has-games.table';
-import { Company } from '../../company/entities/company.entity';
-import { GamesHasCompanies } from '../../../db/many-to-many/games-has-companies.table';
+import { JsonArrayField } from '../../../decorators/json-array-string-field.decorator';
 
 @Table({ tableName: 'games', createdAt: 'created_at', updatedAt: 'updated_at' })
-export class Game extends Model<Game> {
+export class Game extends Model {
   @AllowNull(false)
   @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
   declare id: number;
@@ -31,8 +30,9 @@ export class Game extends Model<Game> {
   @Column({ type: DataType.DATE, field: 'release_date' })
   releaseDate!: Date;
 
-  @BelongsToMany(() => Company, () => GamesHasCompanies)
-  companies!: Company[];
+  @AllowNull(false)
+  @JsonArrayField('companies')
+  companies!: string[];
 
   @AllowNull(true)
   @Column({ type: DataType.TEXT, field: 'cover_img' })
