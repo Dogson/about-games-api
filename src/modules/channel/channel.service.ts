@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { InjectModel } from '@nestjs/sequelize';
@@ -14,20 +14,37 @@ export class ChannelService {
     private readonly youtubeService: YoutubeService,
   ) {}
 
+  private readonly logger = new Logger(ChannelService.name);
+
   async create(createChannelDto: CreateChannelDto): Promise<Channel> {
+    this.logger.log(
+      `Creating channel with YouTube handle: ${createChannelDto.youtubeHandle}`,
+    );
     const channelInfo = await this.youtubeService.getYtChannelInfosByHandle(
       createChannelDto.youtubeHandle,
     );
+    if (channelInfo) {
+      this.logger.log(
+        `Channel found: ${channelInfo.snippet.title} (ID: ${channelInfo.id})`,
+      );
+    }
 
-    console.log(channelInfo);
-
-    return await this.channelModel.create({
+    const channel = await this.channelModel.create({
       ...createChannelDto,
       youtubeId: channelInfo.id,
       name: channelInfo.snippet.title,
       description: channelInfo.snippet.description,
       thumbnailUrl: channelInfo.snippet.thumbnails.default.url,
+      youtubeUploadsId: channelInfo.contentDetails.relatedPlaylists.uploads,
     });
+
+    // Trigger video population after the channel is created
+    this.logger.log(
+      `Populating videos for channel: ${createChannelDto.youtubeHandle} (ID: ${channel.id})`,
+    );
+    await this._populateVideosForChannel(channel);
+
+    return channel;
   }
 
   async findAll(): Promise<Channel[]> {
@@ -69,5 +86,26 @@ export class ChannelService {
     if (deletedRows === 0) {
       throw new NotFoundException(`Channel with id ${id} not found`);
     }
+  }
+
+  private async _populateVideosForChannel(channel: Channel): Promise<void> {
+    const plainChannel = channel.get({ plain: true }) as Channel;
+
+    const videos = await this.youtubeService.getAllVideosFromChannel(
+      plainChannel.youtubeUploadsId,
+    );
+
+    const videoEntities = videos.map((video) => ({
+      title: video.title,
+      description: video.description,
+      youtubeId: video.videoId,
+      releaseDate: new Date(video.publishedAt),
+      validated: false,
+      gamesFoundCount: 0,
+      gamesCount: 0,
+      ytChannelId: channel.id,
+    }));
+
+    await Video.bulkCreate(videoEntities, { ignoreDuplicates: false });
   }
 }

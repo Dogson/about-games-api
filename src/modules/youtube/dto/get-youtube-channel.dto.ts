@@ -20,6 +20,11 @@ export interface YouTubeChannel {
   id: string;
   snippet: YouTubeChannelSnippet;
   statistics: YouTubeChannelStatistics;
+  contentDetails: {
+    relatedPlaylists: {
+      uploads: string; // Playlist ID for uploads
+    };
+  };
 }
 
 export interface YouTubeChannelsListResponse {

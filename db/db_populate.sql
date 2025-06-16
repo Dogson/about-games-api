@@ -5,10 +5,10 @@
 
     -- 1. Insert YouTube channels
     INSERT INTO yt_channel
-    (name, youtube_handle, youtube_id, description, thumbnail, language, parsing_attribute, ignore_episodes_containing, ignore_search_in, end_parsing_after)
+    (name, youtube_handle, youtube_id, youtube_uploads_id, description, thumbnail, language, parsing_attribute, ignore_episodes_containing, ignore_search_in, end_parsing_after)
     VALUES
-        ('ChannelOne', 'IGN','UC1234567890', 'Description for ChannelOne', 'http://example.com/thumb1.jpg', 'en', 'attr1', '[]', '[]', '[]'),
-        ('ChannelTwo', 'Origami', 'UC0987654321', 'Description for ChannelTwo', 'http://example.com/thumb2.jpg', 'fr', 'attr2', '[]', '[]', '[]');
+        ('ChannelOne', 'IGN','UC1234567890', 'UC1234567890', 'Description for ChannelOne', 'http://example.com/thumb1.jpg', 'en', 'attr1', '[]', '[]', '[]'),
+        ('ChannelTwo', 'Origami', 'UC0987654321', 'UC0987654321','Description for ChannelTwo', 'http://example.com/thumb2.jpg', 'fr', 'attr2', '[]', '[]', '[]');
 
     -- 2. Insert games
     INSERT INTO games
