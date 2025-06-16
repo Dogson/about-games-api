@@ -25,8 +25,6 @@ export class AuthService {
       user.passwordHash,
     );
 
-    console.log(passwordMatches);
-
     if (!passwordMatches) {
       return null;
     }

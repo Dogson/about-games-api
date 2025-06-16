@@ -10,7 +10,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // strips properties that do not have decorators
-      forbidNonWhitelisted: false, // throw error if extra props sent
+      // forbidNonWhitelisted: false, // throw error if extra props sent
       transform: true, // transform payloads to DTO instances
     }),
   );

@@ -3,6 +3,7 @@ import {
   BelongsToMany,
   Column,
   DataType,
+  Default,
   Model,
   NotEmpty,
   Table,
@@ -26,9 +27,9 @@ export class Game extends Model {
   @Column(DataType.TEXT)
   title!: string;
 
-  @AllowNull(false)
+  @AllowNull(true)
   @Column({ type: DataType.DATE, field: 'release_date' })
-  releaseDate!: Date;
+  releaseDate?: Date;
 
   @AllowNull(false)
   @JsonArrayField('companies')
@@ -41,6 +42,14 @@ export class Game extends Model {
   @AllowNull(true)
   @Column({ type: DataType.TEXT, field: 'boxart_img' })
   boxartImg?: string;
+
+  @AllowNull(true)
+  @Default(0)
+  @Column({
+    type: DataType.BOOLEAN,
+    field: 'ignore_during_search',
+  })
+  ignoreDuringSearch?: boolean;
 
   @BelongsToMany(() => Video, () => VideosHasGames)
   videos!: Video[];

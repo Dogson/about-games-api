@@ -9,6 +9,8 @@ import { UserModule } from './modules/user/user.module';
 import { GameModule } from './modules/game/game.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { YoutubeService } from './modules/youtube/youtube.service';
+import { IgdbService } from './modules/igdb/igdb.service';
+import { IgdbModule } from './modules/igdb/igdb.module';
 
 @Module({
   imports: [
@@ -35,8 +37,9 @@ import { YoutubeService } from './modules/youtube/youtube.service';
     UserModule,
     GameModule,
     AuthModule,
+    IgdbModule,
   ],
   controllers: [AppController],
-  providers: [AppService, YoutubeService],
+  providers: [AppService, YoutubeService, IgdbService],
 })
 export class AppModule {}

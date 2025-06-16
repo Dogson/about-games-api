@@ -12,10 +12,11 @@
 
     -- 2. Insert games
     INSERT INTO games
-    (igdb_id, title, release_date, companies, cover_img, boxart_img)
+    (igdb_id, title, release_date, companies, cover_img, boxart_img, ignore_during_search)
     VALUES
-        (101, 'Game One', '2023-05-01', '["Company A", "Company B"]', 'http://example.com/game1cover.jpg', 'http://example.com/game1boxart.jpg'),
-        (102, 'Game Two', '2022-11-15', '["Company C"]', 'http://example.com/game2cover.jpg', 'http://example.com/game2boxart.jpg');
+        (101, 'Game One', '2023-05-01', '["Company A", "Company B"]', 'http://example.com/game1cover.jpg', 'http://example.com/game1boxart.jpg', 0),
+        (102, 'Game Two', '2022-11-15', '["Company C"]', 'http://example.com/game2cover.jpg', 'http://example.com/game2boxart.jpg', 0),
+        (245105, 'Boss', '2022-11-15', '["Company C"]', 'http://example.com/game2cover.jpg', 'http://example.com/game2boxart.jpg', 1);
 
     -- 3. Insert videos linked to yt_channels
     INSERT INTO videos

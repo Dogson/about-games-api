@@ -7,6 +7,7 @@ import {
   ForeignKey,
   BelongsTo,
   BelongsToMany,
+  Unique,
 } from 'sequelize-typescript';
 import { Channel } from '../../channel/entities/channel.entity';
 import { Game } from '../../game/entities/game.entity';
@@ -27,8 +28,9 @@ export class Video extends Model {
   @Column(DataType.TEXT)
   title!: string;
 
+  @Unique
   @AllowNull(false)
-  @Column({ type: DataType.TEXT, field: 'youtube_id' })
+  @Column({ type: DataType.STRING(255), field: 'youtube_id' })
   youtubeId!: string;
 
   @AllowNull(false)

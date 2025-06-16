@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   ArrayNotEmpty,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateGameDto {
@@ -18,6 +19,9 @@ export class CreateGameDto {
 
   @IsDateString()
   releaseDate!: string; // Use ISO date string for DTO
+
+  @IsBoolean()
+  ignoreDuringSearch?: boolean;
 
   @IsArray()
   @ArrayNotEmpty()

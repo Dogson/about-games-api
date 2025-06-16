@@ -5,16 +5,33 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Video } from './entities/video.entity';
 import { Game } from '../game/entities/game.entity';
 import { Channel } from '../channel/entities/channel.entity';
+import { IgdbService } from '../igdb/igdb.service';
+import { GameService } from '../game/game.service';
 
 @Injectable()
 export class VideoService {
   constructor(
     @InjectModel(Video)
     private videoModel: typeof Video,
+    private readonly igdbService: IgdbService,
+    private readonly gameService: GameService,
   ) {}
 
   async create(createVideoDto: CreateVideoDto): Promise<Video> {
-    return await this.videoModel.create({ ...createVideoDto });
+    // todo rollback and put this else where, in a CRON or a trigger or smhg.
+    const video = await this.videoModel.create({ ...createVideoDto });
+
+    const games = await this.igdbService.extractMentionedGames(
+      createVideoDto.description,
+    );
+
+    const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
+    await video.$set(
+      'games',
+      gamesFoundOrCreated.map((game) => game.id),
+    );
+
+    return video;
   }
 
   async findAll(): Promise<Video[]> {

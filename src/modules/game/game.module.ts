@@ -10,6 +10,7 @@ import { Channel } from '../channel/entities/channel.entity';
 @Module({
   controllers: [GameController],
   providers: [GameService],
+  exports: [GameService],
   imports: [SequelizeModule.forFeature([Game, VideosHasGames, Video, Channel])],
 })
 export class GameModule {}

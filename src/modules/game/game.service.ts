@@ -6,8 +6,9 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Video } from '../video/entities/video.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import type { FindAllGamesDto } from './dto/find-all-games.dto';
-import { Sequelize } from 'sequelize';
+import { Op, Sequelize, WhereOptions } from 'sequelize';
 import ApiConfig from '../../api.config';
+import type { IGDBGame } from '../igdb/dto/igdb-get-game.dto';
 
 @Injectable()
 export class GameService {
@@ -24,7 +25,7 @@ export class GameService {
     const page = findAllGamesDto.page ?? 1;
     const limit = findAllGamesDto.limit ?? ApiConfig.GAMES_LIMIT_DEFAULT;
     const offset = (page - 1) * limit;
-    const { search } = findAllGamesDto;
+    const { search, ignoreDuringSearch, igdbId } = findAllGamesDto;
 
     const relevanceSearch = search
       ? Sequelize.literal(
@@ -36,19 +37,37 @@ export class GameService {
       include: [
         [
           Sequelize.literal(`(
-        SELECT COUNT(*)
-        FROM videos_has_games AS vhg
-        WHERE vhg.game_id = Game.id
-      )`),
+          SELECT COUNT(*)
+          FROM videos_has_games AS vhg
+          WHERE vhg.game_id = Game.id
+        )`),
           'videosCount',
         ],
         ...(relevanceSearch ? [[relevanceSearch, 'relevance']] : []),
-      ] as [string | ReturnType<typeof Sequelize.literal>, string][], // ✅ Type assertion avoids extra type definition
+      ] as [string | ReturnType<typeof Sequelize.literal>, string][],
     };
+
+    const andConditions: WhereOptions[] = [];
+
+    if (relevanceSearch) {
+      andConditions.push(Sequelize.where(relevanceSearch, { [Op.gt]: 0 }));
+    }
+
+    if (ignoreDuringSearch !== undefined) {
+      andConditions.push({ ignoreDuringSearch: ignoreDuringSearch ? 1 : 0 });
+    }
+
+    if (igdbId) {
+      andConditions.push({ igdbId });
+    }
+
+    // Compose the final where clause
+    const where =
+      andConditions.length > 0 ? { [Op.and]: andConditions } : undefined;
 
     const result = await this.gameModel.findAndCountAll({
       attributes,
-      where: relevanceSearch,
+      where,
       order: relevanceSearch
         ? [[Sequelize.col('relevance'), 'DESC']]
         : [['updated_at', 'DESC']],
@@ -106,5 +125,38 @@ export class GameService {
     if (deletedRows === 0) {
       throw new NotFoundException(`Game with id ${id} not found`);
     }
+  }
+
+  async findOrCreateGames(games: IGDBGame[]): Promise<Game[]> {
+    const gamePromises = games.map(async (game) => {
+      const firstReleaseDate = Math.min(
+        ...(game.release_dates || []).map((date) => date.date),
+      );
+
+      const [foundGame, created] = await this.gameModel.findOrCreate({
+        where: { igdbId: game.id },
+        defaults: {
+          title: game.name,
+          igdbId: game.id,
+          boxartImg: game.cover?.url
+            ? `https:${game.cover.url.replace('t_thumb', 't_cover_big')}`
+            : null,
+          coverImg: game.screenshots?.[0]?.url
+            ? `https:${game.screenshots?.[0]?.url.replace('t_thumb', 't_1080p')}`
+            : null,
+          releaseDate: firstReleaseDate
+            ? new Date(firstReleaseDate * 1000)
+            : null,
+          companies: (game.involved_companies || []).map(
+            (company) => company.company.name,
+          ),
+          ignoreDuringSearch: false,
+        },
+      });
+
+      return foundGame || created;
+    });
+
+    return await Promise.all(gamePromises);
   }
 }

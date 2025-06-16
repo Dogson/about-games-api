@@ -13,7 +13,7 @@ import { GameService } from './game.service';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import Routes from '../../routes.config';
-import type { FindAllGamesDto } from './dto/find-all-games.dto';
+import { FindAllGamesDto } from './dto/find-all-games.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller(Routes.GAMES)
@@ -28,8 +28,7 @@ export class GameController {
 
   @Get()
   findAll(@Query() query: FindAllGamesDto) {
-    const { search, page, limit } = query;
-    return this.gameService.findAll({ search, page, limit });
+    return this.gameService.findAll(query);
   }
 
   @Get(':id')
