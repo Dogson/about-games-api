@@ -95,16 +95,46 @@ export class ChannelService {
       plainChannel.youtubeUploadsId,
     );
 
-    const videoEntities = videos.map((video) => ({
-      title: video.title,
-      description: video.description,
-      youtubeId: video.videoId,
-      releaseDate: new Date(video.publishedAt),
-      validated: false,
-      gamesFoundCount: 0,
-      gamesCount: 0,
-      ytChannelId: channel.id,
-    }));
+    const ignorePatterns: RegExp[] =
+      plainChannel.ignoreEpisodesContaining?.map((patternStr) => {
+        const regexMatch = patternStr.match(/^\/(.+)\/([gimsuy]*)$/);
+        if (regexMatch) {
+          try {
+            return new RegExp(regexMatch[1], regexMatch[2]);
+          } catch {
+            return /a^/;
+          }
+        }
+        return /a^/;
+      }) || [];
+
+    let ignoredVideosCount = 0;
+
+    const videoEntities = videos
+      .map((video) => ({
+        title: video.title,
+        description: video.description,
+        youtubeId: video.videoId,
+        releaseDate: new Date(video.publishedAt),
+        validated: false,
+        gamesFoundCount: 0,
+        gamesCount: 0,
+        ytChannelId: channel.id,
+      }))
+      .filter((video) => {
+        if (ignorePatterns.some((regex) => regex.test(video.title))) {
+          this.logger.log(`Ignoring video "${video.title}"`);
+          ignoredVideosCount++;
+        }
+        return !ignorePatterns.some((regex) => regex.test(video.title));
+      });
+
+    this.logger.log(
+      `Found ${videos.length} videos for channel ${channel.name}`,
+    );
+    this.logger.log(
+      `Ignored ${ignoredVideosCount} videos based on ignore patterns`,
+    );
 
     await Video.bulkCreate(videoEntities, { ignoreDuplicates: false });
   }
