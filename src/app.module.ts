@@ -19,6 +19,7 @@ import { IgdbModule } from './modules/igdb/igdb.module';
       imports: [ConfigModule], // ensure ConfigModule is imported here too
       useFactory: (configService: ConfigService) => {
         return {
+          logging: false,
           autoLoadModels: true,
           synchronize: true,
           sync: { alter: true },

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   forwardRef,
   Inject,
   Injectable,
@@ -32,6 +33,16 @@ export class VideoService {
     if (!channel) {
       throw new NotFoundException(
         `Channel with id ${createVideoDto.ytChannelId} not found`,
+      );
+    }
+
+    // check if video with the same YouTube ID already exists before
+    const existingVideo = await this.videoModel.findOne({
+      where: { youtubeId: createVideoDto.youtubeId },
+    });
+    if (existingVideo) {
+      throw new BadRequestException(
+        `Video with YouTube ID ${createVideoDto.youtubeId} already exists`,
       );
     }
 

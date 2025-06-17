@@ -177,7 +177,7 @@ export class IgdbService {
     }
 
     // === 7. Fallback to single capitalized or numeric words ===
-    const singleWordTitleRegex = /\b(?:\d+|[A-Z][a-z]{3,})\b/g;
+    const singleWordTitleRegex = /\b(?:\d+|[A-Z]{2,}|[A-Z][a-z]{3,})\b/g;
     while ((match = singleWordTitleRegex.exec(cleanedText)) !== null) {
       const word = match[0];
       if (!wordsInsideMultiWordTitles.has(word.toLowerCase())) {

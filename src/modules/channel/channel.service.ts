@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { InjectModel } from '@nestjs/sequelize';
@@ -19,6 +24,16 @@ export class ChannelService {
   private readonly logger = new Logger(ChannelService.name);
 
   async create(createChannelDto: CreateChannelDto): Promise<Channel> {
+    // check if channel with the same YouTube handle already exists
+    const existingChannel = await this.channelModel.findOne({
+      where: { youtubeHandle: createChannelDto.youtubeHandle },
+    });
+    if (existingChannel) {
+      throw new BadRequestException(
+        `Video with YouTube Handle ${createChannelDto.youtubeHandle} already exists`,
+      );
+    }
+
     this.logger.log(
       `Creating channel with YouTube handle: ${createChannelDto.youtubeHandle}`,
     );
@@ -90,11 +105,45 @@ export class ChannelService {
     }
   }
 
+  async generateMissingVideosForAllChannels() {
+    this.logger.log('Generating missing videos for all channels...');
+    const channels = await this.channelModel.findAll({
+      include: [{ model: Video }],
+    });
+
+    for (const channel of channels) {
+      try {
+        await this._populateVideosForChannel(channel);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          this.logger.error(
+            `Failed to populate videos for channel "${channel.get('name')}": ${error.message}`,
+          );
+        } else {
+          // Fallback for unknown error shapes
+          this.logger.error(
+            `Failed to populate videos for channel "${channel.get('name')}": ${String(error)}`,
+          );
+        }
+      }
+    }
+  }
+
   private async _populateVideosForChannel(channel: Channel): Promise<void> {
     const plainChannel = channel.get({ plain: true }) as Channel;
 
     const videos = await this.youtubeService.getAllVideosFromChannel(
       plainChannel.youtubeUploadsId,
+    );
+
+    const existingVideos = channel.get('videos') || [];
+
+    const newVideos = videos.filter(
+      (video) =>
+        !existingVideos.some(
+          (existingVideo: Video) =>
+            existingVideo.get('youtubeId') === video.videoId,
+        ),
     );
 
     const ignoreContainingPattern: RegExp[] =
@@ -125,7 +174,7 @@ export class ChannelService {
 
     let ignoredVideosCount = 0;
 
-    const videoDtos = videos
+    const videoDtos = newVideos
       .map((video) => ({
         title: video.title,
         description: video.description,
@@ -165,7 +214,7 @@ export class ChannelService {
       });
 
     this.logger.log(
-      `Found ${videos.length} videos for channel ${channel.get('name')}`,
+      `Found ${newVideos.length} videos for channel ${channel.get('name')}`,
     );
     this.logger.log(
       `Ignored ${ignoredVideosCount} videos based on ignore patterns`,

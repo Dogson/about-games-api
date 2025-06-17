@@ -25,6 +25,12 @@ export class ChannelController {
     return this.channelService.create(createChannelDto);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('generate')
+  generateMissingVideosForAllChannels() {
+    return this.channelService.generateMissingVideosForAllChannels();
+  }
+
   @Get()
   findAll() {
     return this.channelService.findAll();
