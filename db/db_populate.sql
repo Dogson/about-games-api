@@ -5,7 +5,7 @@
 
     -- 1. Insert YouTube channels
     INSERT INTO yt_channel
-    (name, youtube_handle, youtube_id, youtube_uploads_id, description, thumbnail, language, parsing_attribute, ignore_episodes_containing, ignore_search_in, end_parsing_after)
+    (name, youtube_handle, youtube_id, youtube_uploads_id, description, thumbnail_url, language, parsing_attribute, ignore_episodes_containing, ignore_search_in, end_parsing_after)
     VALUES
         ('ChannelOne', 'IGN','UC1234567890', 'UC1234567890', 'Description for ChannelOne', 'http://example.com/thumb1.jpg', 'en', 'attr1', '[]', '[]', '[]'),
         ('ChannelTwo', 'Origami', 'UC0987654321', 'UC0987654321','Description for ChannelTwo', 'http://example.com/thumb2.jpg', 'fr', 'attr2', '[]', '[]', '[]');
@@ -20,10 +20,10 @@
 
     -- 3. Insert videos linked to yt_channels
     INSERT INTO videos
-    (yt_channel_id, title, youtube_id, description, release_date, validated, games_found_count, games_count)
+    (yt_channel_id, title, youtube_id, description, thumbnail_url, release_date, validated, games_found_count, games_count)
     VALUES
-        ((SELECT id FROM yt_channel WHERE name = 'ChannelOne'), 'Video 1 for ChannelOne', 'HHDHJJJDJDJDJ', 'Desc 1', '2023-05-10', 1, 1, 1),
-        ((SELECT id FROM yt_channel WHERE name = 'ChannelTwo'), 'Video 1 for ChannelTwo', 'JJKHJKHKDJ','Desc 2', '2023-06-01', 0, 0, 0);
+        ((SELECT id FROM yt_channel WHERE name = 'ChannelOne'), 'Video 1 for ChannelOne', 'HHDHJJJDJDJDJ', 'Desc 1', 'http://thumbnail.com','2023-05-10', 1, 1, 1),
+        ((SELECT id FROM yt_channel WHERE name = 'ChannelTwo'), 'Video 1 for ChannelTwo', 'JJKHJKHKDJ','Desc 2', 'http://thumbnail.com','2023-06-01', 0, 0, 0);
 
     -- 4. Link videos to games in pivot table
     INSERT INTO videos_has_games (video_id, game_id)

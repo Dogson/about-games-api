@@ -3,6 +3,7 @@ export interface YouTubeVideoItem {
   description: string;
   videoId: string;
   publishedAt: string;
+  thumbnailUrl: string;
 }
 
 interface YouTubePlaylistItemSnippet {
@@ -11,6 +12,11 @@ interface YouTubePlaylistItemSnippet {
   publishedAt: string;
   resourceId: {
     videoId: string;
+  };
+  thumbnails?: {
+    high?: {
+      url: string;
+    };
   };
 }
 

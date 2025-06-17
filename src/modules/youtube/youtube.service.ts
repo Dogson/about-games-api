@@ -104,12 +104,14 @@ export class YoutubeService {
 
         for (const item of response.data.items) {
           const { snippet } = item;
-          videos.push({
-            title: snippet.title,
-            videoId: snippet.resourceId.videoId,
-            publishedAt: snippet.publishedAt,
-            description: snippet.description,
-          });
+          if (snippet.thumbnails?.high?.url)
+            videos.push({
+              title: snippet.title,
+              videoId: snippet.resourceId.videoId,
+              publishedAt: snippet.publishedAt,
+              description: snippet.description,
+              thumbnailUrl: snippet.thumbnails.high.url,
+            });
         }
 
         nextPageToken = response.data.nextPageToken;

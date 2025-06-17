@@ -181,6 +181,7 @@ export class ChannelService {
         youtubeId: video.videoId,
         releaseDate: video.publishedAt,
         validated: false,
+        thumbnailUrl: video.thumbnailUrl,
         gamesFoundCount: 0,
         gamesCount: 0,
         ytChannelId: channel.id,

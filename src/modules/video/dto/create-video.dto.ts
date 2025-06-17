@@ -23,6 +23,9 @@ export class CreateVideoDto {
   @IsString()
   description!: string;
 
+  @IsString()
+  thumbnailUrl!: string;
+
   @IsOptional()
   @IsDateString()
   releaseDate?: string;

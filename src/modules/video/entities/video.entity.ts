@@ -41,6 +41,10 @@ export class Video extends Model {
   @Column({ type: DataType.DATE, field: 'release_date' })
   releaseDate?: Date;
 
+  @AllowNull(false)
+  @Column({ type: DataType.TEXT, field: 'thumbnail_url' })
+  thumbnailUrl!: string;
+
   @AllowNull(true)
   @Column(DataType.BOOLEAN)
   validated?: boolean;

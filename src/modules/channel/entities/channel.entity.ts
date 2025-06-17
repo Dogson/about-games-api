@@ -45,8 +45,8 @@ export class Channel extends Model {
   description?: string;
 
   @AllowNull(true)
-  @Column(DataType.TEXT)
-  thumbnail?: string;
+  @Column({ type: DataType.TEXT, field: 'thumbnail_url' })
+  thumbnailUrl?: string;
 
   @AllowNull(false)
   @Column(DataType.STRING(45))
