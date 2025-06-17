@@ -9,6 +9,7 @@ import type { FindAllGamesDto } from './dto/find-all-games.dto';
 import { Op, Sequelize, WhereOptions } from 'sequelize';
 import ApiConfig from '../../api.config';
 import type { IGDBGame } from '../igdb/dto/igdb-get-game.dto';
+import { instanceToPlain } from 'class-transformer';
 
 @Injectable()
 export class GameService {
@@ -127,30 +128,13 @@ export class GameService {
     }
   }
 
-  async findOrCreateGames(games: IGDBGame[]): Promise<Game[]> {
-    const gamePromises = games.map(async (game) => {
-      const firstReleaseDate = Math.min(
-        ...(game.release_dates || []).map((date) => date.date),
-      );
-
+  async findOrCreateGames(games: CreateGameDto[]): Promise<Game[]> {
+    const gamePromises = games.map(async (gameDto) => {
+      const plainGame = instanceToPlain(gameDto);
       const [foundGame, created] = await this.gameModel.findOrCreate({
-        where: { igdbId: game.id },
+        where: { igdbId: plainGame.igdbId },
         defaults: {
-          title: game.name,
-          igdbId: game.id,
-          boxartImg: game.cover?.url
-            ? `https:${game.cover.url.replace('t_thumb', 't_cover_big')}`
-            : null,
-          coverImg: game.screenshots?.[0]?.url
-            ? `https:${game.screenshots?.[0]?.url.replace('t_thumb', 't_1080p')}`
-            : null,
-          releaseDate: firstReleaseDate
-            ? new Date(firstReleaseDate * 1000)
-            : null,
-          companies: (game.involved_companies || []).map(
-            (company) => company.company.name,
-          ),
-          ignoreDuringSearch: false,
+          ...plainGame,
         },
       });
 
@@ -158,5 +142,29 @@ export class GameService {
     });
 
     return await Promise.all(gamePromises);
+  }
+
+  mapIgdbGamesToCreateGamesDTO(igdbGame: IGDBGame): CreateGameDto {
+    const firstReleaseDate = Math.min(
+      ...(igdbGame.release_dates || []).map((date) => date.date),
+    );
+
+    return {
+      title: igdbGame.name,
+      igdbId: igdbGame.id,
+      boxartImg: igdbGame.cover?.url
+        ? `https:${igdbGame.cover.url.replace('t_thumb', 't_cover_big')}`
+        : undefined,
+      coverImg: igdbGame.screenshots?.[0]?.url
+        ? `https:${igdbGame.screenshots?.[0]?.url.replace('t_thumb', 't_1080p')}`
+        : undefined,
+      releaseDate: firstReleaseDate
+        ? new Date(firstReleaseDate * 1000)
+        : undefined,
+      companies: (igdbGame.involved_companies || []).map(
+        (company) => company.company.name,
+      ),
+      ignoreDuringSearch: false,
+    };
   }
 }

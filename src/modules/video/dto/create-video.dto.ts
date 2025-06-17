@@ -30,12 +30,4 @@ export class CreateVideoDto {
   @IsOptional()
   @IsBoolean()
   validated?: boolean;
-
-  @IsOptional()
-  @IsInt()
-  gamesFoundCount?: number;
-
-  @IsOptional()
-  @IsInt()
-  gamesCount?: number;
 }

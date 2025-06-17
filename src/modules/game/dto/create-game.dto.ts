@@ -17,8 +17,9 @@ export class CreateGameDto {
   @IsString()
   title!: string;
 
+  @IsOptional()
   @IsDateString()
-  releaseDate!: string; // Use ISO date string for DTO
+  releaseDate?: Date; // Use ISO date string for DTO
 
   @IsBoolean()
   ignoreDuringSearch?: boolean;
