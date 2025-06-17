@@ -1,6 +1,10 @@
 export type IGDBGame = {
   id: number;
   name: string;
+  alternative_names?: {
+    id: number;
+    name: string;
+  }[];
   release_dates?: {
     date: number; // Unix timestamp for release date
     // optionally: region, platform, etc.

@@ -41,30 +41,44 @@ export class IgdbService {
 
     const uniqueNames = [...new Set(candidateNames)];
 
-    const foundGames: IGDBGame[] = [];
+    const allFoundGames: IGDBGame[] = [];
+    const usedNames = new Set<string>();
 
-    for (const name of uniqueNames) {
+    // Trier par longueur décroissante
+    const sortedNames = [...uniqueNames].sort((a, b) => b.length - a.length);
+
+    for (const name of sortedNames) {
+      const normalized = removeAllAccents(
+        removeAllWhitespaces(normalizeString(name)),
+      );
+
+      // Ignorer si ce nom est déjà couvert par un nom plus long déjà utilisé
+      const isSubOfUsed = Array.from(usedNames).some((used) =>
+        used.includes(normalized),
+      );
+      if (isSubOfUsed) continue;
+
       try {
         const games = await this.queryIGDBByName(name);
-
         const foundGame = this._findGameInList(name, games);
 
-        const shouldIgnoreGame =
-          !!foundGame &&
-          (
-            await this.gameService.findAll({
-              ignoreDuringSearch: true,
-              limit: 1000,
-              igdbId: foundGame?.id,
-            })
-          ).total > 0;
+        if (foundGame) {
+          const shouldIgnoreGame =
+            (
+              await this.gameService.findAll({
+                ignoreDuringSearch: true,
+                limit: 1000,
+                igdbId: foundGame.id,
+              })
+            ).total > 0;
 
-        if (shouldIgnoreGame) {
-          this.logger.log(`Ignoring game "${foundGame.name}"`);
-        }
+          if (shouldIgnoreGame) {
+            this.logger.log(`Ignoring game "${foundGame.name}"`);
+            continue;
+          }
 
-        if (foundGame && !shouldIgnoreGame) {
-          foundGames.push(foundGame);
+          usedNames.add(normalized);
+          allFoundGames.push(foundGame);
         }
       } catch (error) {
         if (error instanceof Error) {
@@ -81,10 +95,10 @@ export class IgdbService {
     }
 
     // Filter out games that are substrings of other games
-    const foundGamesWithoutUnrelevant = foundGames.filter((game) => {
+    const foundGamesWithoutUnrelevant = allFoundGames.filter((game) => {
       const lowerStr = game.name.toLowerCase();
       // keep the string only if no other string contains it (and it's not the same string)
-      return !foundGames.some(
+      return !allFoundGames.some(
         (otherGame) =>
           otherGame.name.toLowerCase() !== lowerStr &&
           otherGame.name.toLowerCase().includes(lowerStr),
@@ -145,6 +159,9 @@ export class IgdbService {
       cleanedText = removeMatchesFromString(cleanedText, pattern);
     }
 
+    // === 3.5 Strip dots from cleanedText ===
+    cleanedText = cleanedText.replace(/\./g, '');
+
     // === 4. Extract quoted titles ===
     const quotedTitleRegex = /["“'”]([^"“'”\n]{2,})["”']/g;
     while ((match = quotedTitleRegex.exec(cleanedText)) !== null) {
@@ -166,7 +183,18 @@ export class IgdbService {
     );
 
     while ((match = titleRegex.exec(cleanedText)) !== null) {
-      multiWordCandidates.add(match[1].trim());
+      const candidate = match[1].trim();
+      const words = candidate.split(/\s+/);
+      const lastWord = words[words.length - 1];
+
+      // Ignore si le dernier mot est tout en minuscules (au moins 3 lettres) et non dans la whitelist
+      const allowedLowercaseWords = ['of', 'the', 'in', 'and', 'to'];
+      if (
+        !/^[a-z]{3,}$/.test(lastWord) ||
+        allowedLowercaseWords.includes(lastWord)
+      ) {
+        multiWordCandidates.add(candidate);
+      }
     }
 
     // === 6. Track words in multi-word titles ===
@@ -208,15 +236,30 @@ export class IgdbService {
 
     // === 10. Expand contiguous substrings ===
     const expanded = new Set<string>();
+
     for (const title of combined) {
       const words = title.split(/\s+/).filter(Boolean);
+
       if (words.length <= 1) {
-        expanded.add(title);
+        const word = words[0];
+        if (word && word[0] === word[0].toUpperCase()) {
+          expanded.add(word);
+        }
       } else {
         for (let start = 0; start < words.length; start++) {
           for (let end = start + 1; end <= words.length; end++) {
-            const substring = words.slice(start, end).join(' ');
-            if (substring.length > 1) expanded.add(substring);
+            const slice = words.slice(start, end);
+            const first = slice[0];
+            const last = slice[slice.length - 1];
+
+            if (
+              first &&
+              last &&
+              first[0] === first[0].toUpperCase() &&
+              last[0] === last[0].toUpperCase()
+            ) {
+              expanded.add(slice.join(' '));
+            }
           }
         }
       }
@@ -313,6 +356,15 @@ export class IgdbService {
       if (
         removeAllAccents(removeAllWhitespaces(normalizeString(game.name))) ===
         normalizedTarget
+      ) {
+        matchingGames.push(game);
+      } else if (
+        game.alternative_names?.some(
+          (alt) =>
+            removeAllAccents(
+              removeAllWhitespaces(normalizeString(alt.name)),
+            ) === normalizedTarget,
+        )
       ) {
         matchingGames.push(game);
       }
