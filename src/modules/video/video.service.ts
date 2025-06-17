@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { UpdateVideoDto } from './dto/update-video.dto';
 import { InjectModel } from '@nestjs/sequelize';
@@ -7,6 +12,7 @@ import { Game } from '../game/entities/game.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import { IgdbService } from '../igdb/igdb.service';
 import { GameService } from '../game/game.service';
+import { ChannelService } from '../channel/channel.service';
 
 @Injectable()
 export class VideoService {
@@ -15,21 +21,32 @@ export class VideoService {
     private videoModel: typeof Video,
     private readonly igdbService: IgdbService,
     private readonly gameService: GameService,
+    @Inject(forwardRef(() => ChannelService))
+    private readonly channelService: ChannelService,
   ) {}
 
   async create(createVideoDto: CreateVideoDto): Promise<Video> {
-    // todo rollback and put this else where, in a CRON or a trigger or smhg.
+    const channel = await this.channelService.findOne(
+      createVideoDto.ytChannelId,
+    );
+    if (!channel) {
+      throw new NotFoundException(
+        `Channel with id ${createVideoDto.ytChannelId} not found`,
+      );
+    }
 
     const igdbGames = await this.igdbService.extractMentionedGames(
-      createVideoDto.description,
+      createVideoDto[channel.get('parsingAttribute')] || createVideoDto.title,
+      channel.get('ignoreSearchIn'),
+      channel.get('endParsingAfter'),
     );
 
     const games = igdbGames.map((igdbGame) =>
       this.gameService.mapIgdbGamesToCreateGamesDTO(igdbGame),
     );
 
-    const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
     const video = await this.videoModel.create({ ...createVideoDto });
+    const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
     await video.$set(
       'games',
       gamesFoundOrCreated.map((game) => game.id),

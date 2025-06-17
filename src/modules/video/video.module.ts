@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { VideoService } from './video.service';
 import { VideoController } from './video.controller';
 import { SequelizeModule } from '@nestjs/sequelize';
@@ -8,6 +8,7 @@ import { Video } from './entities/video.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import { IgdbModule } from '../igdb/igdb.module';
 import { GameModule } from '../game/game.module';
+import { ChannelModule } from '../channel/channel.module';
 
 @Module({
   controllers: [VideoController],
@@ -16,6 +17,8 @@ import { GameModule } from '../game/game.module';
     SequelizeModule.forFeature([Game, VideosHasGames, Video, Channel]),
     IgdbModule,
     GameModule,
+    forwardRef(() => ChannelModule),
   ],
+  exports: [VideoService],
 })
 export class VideoModule {}

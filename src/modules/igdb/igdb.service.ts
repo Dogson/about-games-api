@@ -26,23 +26,26 @@ export class IgdbService {
   /**
    * Public method to extract mentioned games from a paragraph
    */
-  async extractMentionedGames(description: string): Promise<IGDBGame[]> {
-    const candidateNames = this.extractTitleCandidates(description);
+  async extractMentionedGames(
+    stringToParse: string,
+    ignoreSearchIn: string[] = [],
+    endParsingAfter: string[] = [],
+  ): Promise<IGDBGame[]> {
+    this.logger.log(`Parsing string for game titles: "${stringToParse}"`);
+
+    const candidateNames = this.extractTitleCandidates(
+      stringToParse,
+      ignoreSearchIn,
+      endParsingAfter,
+    );
 
     const uniqueNames = [...new Set(candidateNames)];
-
-    this.logger.log(
-      `Found ${uniqueNames.length} candidate game titles : ${uniqueNames.join(', ')}`,
-    );
 
     const foundGames: IGDBGame[] = [];
 
     for (const name of uniqueNames) {
       try {
         const games = await this.queryIGDBByName(name);
-        this.logger.log(
-          `Queried IGDB for "${name}", found ${games.length} results`,
-        );
 
         const foundGame = this._findGameInList(name, games);
 
@@ -99,28 +102,62 @@ export class IgdbService {
   /**
    * Naive NLP approach: extract capitalized sequences that could be game titles
    */
-  private extractTitleCandidates(text: string): string[] {
+  private extractTitleCandidates(
+    text: string,
+    ignoreSearchIn: string[] = [],
+    endParsingAfter: string[] = [],
+  ): string[] {
     const multiWordCandidates = new Set<string>();
     const singleWordCandidates = new Set<string>();
     let match: RegExpExecArray | null;
 
-    // 0. Remove timestamps from the text
-    const timestampRegex = /\b\d+(?::\d+)+\b/g;
-    const cleanedText = removeMatchesFromString(text, timestampRegex);
+    // === 0. Compile ignoreSearchIn and endParsingAfter patterns ===
+    const compileRegex = (patternStr: string): RegExp => {
+      const regexMatch = patternStr.match(/^\/(.+)\/([gimsuy]*)$/);
+      if (regexMatch) {
+        try {
+          return new RegExp(regexMatch[1], regexMatch[2]);
+        } catch {
+          return /a^/; // invalid pattern fallback
+        }
+      }
+      return /a^/;
+    };
 
-    // 1. Quoted titles (assumed multi-word)
+    const ignoreSearchPatterns = ignoreSearchIn.map(compileRegex);
+    const endParsingPatterns = endParsingAfter.map(compileRegex);
+
+    // === 1. Apply `endParsingAfter` truncation ===
+    for (const pattern of endParsingPatterns) {
+      const match = pattern.exec(text);
+      if (match && match.index !== undefined) {
+        text = text.slice(0, match.index + match[0].length);
+        break; // only apply the first match
+      }
+    }
+
+    // === 2. Remove timestamps ===
+    const timestampRegex = /\b\d+(?::\d+)+\b/g;
+    let cleanedText = removeMatchesFromString(text, timestampRegex);
+
+    // === 3. Remove substrings matching `ignoreSearchIn` ===
+    for (const pattern of ignoreSearchPatterns) {
+      cleanedText = removeMatchesFromString(cleanedText, pattern);
+    }
+
+    // === 4. Extract quoted titles ===
     const quotedTitleRegex = /["“'”]([^"“'”\n]{2,})["”']/g;
     while ((match = quotedTitleRegex.exec(cleanedText)) !== null) {
       multiWordCandidates.add(match[1].trim());
     }
 
-    // 2. Compound titles with lowercase connectors and optional numbers
+    // === 5. Extract compound capitalized/numeric patterns ===
     const titleRegex = new RegExp(
       String.raw`\b(` +
-        String.raw`(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` + // Capitalized, ALL CAPS, or numbers
+        String.raw`(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` +
         String.raw`(?:` +
-        String.raw`(?:\s+[a-z]{1,4})+` + // small lowercase words in between
-        String.raw`\s+(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` + // another unit (number, Capitalized, or ALL CAPS)
+        String.raw`(?:\s+[a-z]{1,4})+` +
+        String.raw`\s+(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` +
         String.raw`|` +
         String.raw`\s+(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` +
         String.raw`)+` +
@@ -132,14 +169,14 @@ export class IgdbService {
       multiWordCandidates.add(match[1].trim());
     }
 
-    // 3. Track words inside multi-word titles to avoid duplication
+    // === 6. Track words in multi-word titles ===
     const wordsInsideMultiWordTitles = new Set<string>();
     for (const title of multiWordCandidates) {
       const words = title.split(/[\s:’‘'"-]+/).filter(Boolean);
       words.forEach((w) => wordsInsideMultiWordTitles.add(w.toLowerCase()));
     }
 
-    // 4. Fallback to single capitalized or numeric words
+    // === 7. Fallback to single capitalized or numeric words ===
     const singleWordTitleRegex = /\b(?:\d+|[A-Z][a-z]{3,})\b/g;
     while ((match = singleWordTitleRegex.exec(cleanedText)) !== null) {
       const word = match[0];
@@ -148,10 +185,10 @@ export class IgdbService {
       }
     }
 
-    // 5. Combine and return
+    // === 8. Combine sets ===
     const combined = new Set([...multiWordCandidates, ...singleWordCandidates]);
 
-    // 6. Look for patterns like "[Title1] and [Title2]"
+    // === 9. Split compound titles like "A and B" ===
     const connectorWords = ['and', 'vs', 'or', '&', 'et', 'ou', "it's", "It's"];
     const combinedTitles = Array.from(combined);
 
@@ -161,24 +198,21 @@ export class IgdbService {
         const match = pattern.exec(title);
         if (match) {
           const [, left, right] = match;
-          // Trim and ensure both sides look like valid sub-titles (basic check)
           if (left.length > 2 && right.length > 2) {
             combined.add(left.trim());
             combined.add(right.trim());
-            combined.add(title.trim()); // already in, but harmless to re-add
           }
         }
       }
     }
 
-    // 7. Generate all contiguous substrings of multi-word titles and add them
+    // === 10. Expand contiguous substrings ===
     const expanded = new Set<string>();
     for (const title of combined) {
       const words = title.split(/\s+/).filter(Boolean);
       if (words.length <= 1) {
         expanded.add(title);
       } else {
-        // Generate all contiguous substrings of words with length >=1
         for (let start = 0; start < words.length; start++) {
           for (let end = start + 1; end <= words.length; end++) {
             const substring = words.slice(start, end).join(' ');

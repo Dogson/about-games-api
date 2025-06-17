@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsArray, ArrayNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray } from 'class-validator';
 
 export class CreateChannelDto {
   @IsString()
@@ -14,14 +14,14 @@ export class CreateChannelDto {
   language!: string;
 
   @IsArray()
-  @ArrayNotEmpty()
   ignoreEpisodesContaining!: string[];
 
   @IsArray()
-  @ArrayNotEmpty()
+  ignoreEpisodesMissing!: string[];
+
+  @IsArray()
   ignoreSearchIn!: string[];
 
   @IsArray()
-  @ArrayNotEmpty()
   endParsingAfter!: string[];
 }

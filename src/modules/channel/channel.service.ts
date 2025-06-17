@@ -5,6 +5,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Channel } from './entities/channel.entity';
 import { Video } from '../video/entities/video.entity';
 import { YoutubeService } from '../youtube/youtube.service';
+import { VideoService } from '../video/video.service';
 
 @Injectable()
 export class ChannelService {
@@ -12,6 +13,7 @@ export class ChannelService {
     @InjectModel(Channel)
     private channelModel: typeof Channel,
     private readonly youtubeService: YoutubeService,
+    private readonly videoService: VideoService,
   ) {}
 
   private readonly logger = new Logger(ChannelService.name);
@@ -40,9 +42,9 @@ export class ChannelService {
 
     // Trigger video population after the channel is created
     this.logger.log(
-      `Populating videos for channel: ${createChannelDto.youtubeHandle} (ID: ${channel.id})`,
+      `Populating videos for channel: ${channel.get('youtubeHandle')} (ID: ${channel.id})`,
     );
-    await this._populateVideosForChannel(channel);
+    this._populateVideosForChannel(channel);
 
     return channel;
   }
@@ -95,7 +97,7 @@ export class ChannelService {
       plainChannel.youtubeUploadsId,
     );
 
-    const ignorePatterns: RegExp[] =
+    const ignoreContainingPattern: RegExp[] =
       plainChannel.ignoreEpisodesContaining?.map((patternStr) => {
         const regexMatch = patternStr.match(/^\/(.+)\/([gimsuy]*)$/);
         if (regexMatch) {
@@ -108,34 +110,82 @@ export class ChannelService {
         return /a^/;
       }) || [];
 
+    const ignoreMissingPatterns: (RegExp | string)[] =
+      plainChannel.ignoreEpisodesMissing?.map((patternStr) => {
+        const regexMatch = patternStr.match(/^\/(.+)\/([gimsuy]*)$/);
+        if (regexMatch) {
+          try {
+            return new RegExp(regexMatch[1], regexMatch[2]);
+          } catch {
+            return ''; // won't match anything
+          }
+        }
+        return patternStr; // treat as simple substring
+      }) || [];
+
     let ignoredVideosCount = 0;
 
-    const videoEntities = videos
+    const videoDtos = videos
       .map((video) => ({
         title: video.title,
         description: video.description,
         youtubeId: video.videoId,
-        releaseDate: new Date(video.publishedAt),
+        releaseDate: video.publishedAt,
         validated: false,
         gamesFoundCount: 0,
         gamesCount: 0,
         ytChannelId: channel.id,
       }))
       .filter((video) => {
-        if (ignorePatterns.some((regex) => regex.test(video.title))) {
-          this.logger.log(`Ignoring video "${video.title}"`);
+        const title = video.title;
+
+        // Ignore if title matches any "ignoreEpisodesContaining" pattern
+        if (ignoreContainingPattern.some((regex) => regex.test(title))) {
           ignoredVideosCount++;
+          return false;
         }
-        return !ignorePatterns.some((regex) => regex.test(video.title));
+
+        // Ignore if title does NOT contain ANY of the "ignoreEpisodesMissing" patterns
+        // That is, if none of these patterns appear in the title, ignore video
+        if (ignoreMissingPatterns.length > 0) {
+          const containsAny = ignoreMissingPatterns.some((pattern) => {
+            if (pattern instanceof RegExp) {
+              return pattern.test(title);
+            }
+            return title.includes(pattern);
+          });
+          if (!containsAny) {
+            ignoredVideosCount++;
+            return false;
+          }
+        }
+
+        // Otherwise keep the video
+        return true;
       });
 
     this.logger.log(
-      `Found ${videos.length} videos for channel ${channel.name}`,
+      `Found ${videos.length} videos for channel ${channel.get('name')}`,
     );
     this.logger.log(
       `Ignored ${ignoredVideosCount} videos based on ignore patterns`,
     );
 
-    await Video.bulkCreate(videoEntities, { ignoreDuplicates: false });
+    for (const videoDto of videoDtos) {
+      try {
+        await this.videoService.create(videoDto);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          this.logger.error(
+            `Failed to create video "${videoDto.title}": ${error.message}`,
+          );
+        } else {
+          // Fallback for unknown error shapes
+          this.logger.error(
+            `Failed to create video "${videoDto.title}": ${String(error)}`,
+          );
+        }
+      }
+    }
   }
 }

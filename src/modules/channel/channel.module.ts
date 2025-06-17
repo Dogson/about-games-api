@@ -7,6 +7,7 @@ import { VideosHasGames } from '../../db/many-to-many/videos-has-games.table';
 import { Video } from '../video/entities/video.entity';
 import { Channel } from './entities/channel.entity';
 import { YoutubeModule } from '../youtube/youtube.module';
+import { VideoModule } from '../video/video.module';
 
 @Module({
   controllers: [ChannelController],
@@ -14,6 +15,8 @@ import { YoutubeModule } from '../youtube/youtube.module';
   imports: [
     SequelizeModule.forFeature([Game, VideosHasGames, Video, Channel]),
     YoutubeModule,
+    VideoModule,
   ],
+  exports: [ChannelService],
 })
 export class ChannelModule {}
