@@ -12,7 +12,7 @@ export class UserService {
   ) {}
 
   create(createUserDto: CreateUserDto) {
-    console.log(createUserDto);
+    console.info(createUserDto);
     return 'This action adds a new user';
   }
 
@@ -29,7 +29,7 @@ export class UserService {
   }
 
   update(id: number, updateUserDto: UpdateUserDto) {
-    console.log(updateUserDto);
+    console.info(updateUserDto);
     return `This action updates a #${id} user`;
   }
 

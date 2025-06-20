@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import type { IGDBGame } from './dto/igdb-get-game.dto';
 import axios, { type AxiosResponse } from 'axios';
 import {
@@ -21,7 +21,10 @@ export class IgdbService {
   private readonly apiClientSecret = process.env.IGDB_API_CLIENT_SECRET || '';
   private readonly oauthUrl = process.env.IGDB_OAUTH_URL || '';
 
-  constructor(private readonly gameService: GameService) {}
+  constructor(
+    @Inject(forwardRef(() => GameService))
+    private readonly gameService: GameService,
+  ) {}
 
   /**
    * Public method to extract mentioned games from a paragraph
@@ -340,6 +343,53 @@ export class IgdbService {
         this.logger.warn(`Failed to query IGDB for "${name}": Unknown error`);
       }
       return [];
+    }
+  }
+
+  public async getIGDBGameById(id: number): Promise<IGDBGame | null> {
+    const token = await this.getAccessToken();
+
+    try {
+      const response = await axios.post(
+        this.apiHost,
+        `fields
+          id,
+          category,
+          name,
+          release_dates.date,
+          involved_companies.company.name,
+          cover.url,
+          screenshots.url;
+        where id=${id};`,
+        {
+          headers: {
+            'Client-ID': this.apiClientId,
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const games = response.data as IGDBGame[];
+      if (games.length === 0) {
+        this.logger.warn(`No IGDB game found for ID "${id}"`);
+        return null;
+      }
+      return games[0];
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        this.logger.warn(
+          `Failed to get IGDB game by ID "${id}": ${error.message}`,
+        );
+      } else if (error instanceof Error) {
+        this.logger.warn(
+          `Failed to get IGDB game by ID "${id}": ${error.message}`,
+        );
+      } else {
+        this.logger.warn(
+          `Failed to get IGDB game by ID "${id}": Unknown error`,
+        );
+      }
+      return null;
     }
   }
 

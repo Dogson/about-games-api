@@ -3,6 +3,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateVideoDto } from './dto/create-video.dto';
@@ -14,6 +15,7 @@ import { Channel } from '../channel/entities/channel.entity';
 import { IgdbService } from '../igdb/igdb.service';
 import { GameService } from '../game/game.service';
 import { ChannelService } from '../channel/channel.service';
+import { YoutubeService } from '../youtube/youtube.service';
 
 @Injectable()
 export class VideoService {
@@ -22,9 +24,12 @@ export class VideoService {
     private videoModel: typeof Video,
     private readonly igdbService: IgdbService,
     private readonly gameService: GameService,
+    private readonly youtubeService: YoutubeService,
     @Inject(forwardRef(() => ChannelService))
     private readonly channelService: ChannelService,
   ) {}
+
+  private readonly logger = new Logger(VideoService.name);
 
   async create(createVideoDto: CreateVideoDto): Promise<Video> {
     const channel = await this.channelService.findOne(
@@ -46,8 +51,10 @@ export class VideoService {
       );
     }
 
+    const parsingAttribute = channel.get('parsingAttribute');
+
     const igdbGames = await this.igdbService.extractMentionedGames(
-      createVideoDto[channel.get('parsingAttribute')] || createVideoDto.title,
+      (createVideoDto[parsingAttribute] as string) || createVideoDto.title,
       channel.get('ignoreSearchIn'),
       channel.get('endParsingAfter'),
     );
@@ -64,6 +71,58 @@ export class VideoService {
     );
 
     return video;
+  }
+
+  async syncVideosFromYoutube(channel: Channel) {
+    const destroyedVideos: string[] = [];
+    const updatedVideos: string[] = [];
+    try {
+      const youtubeUploadsId = channel.get('youtubeUploadsId');
+
+      const ytVideos =
+        await this.youtubeService.getAllVideosFromChannel(youtubeUploadsId);
+      const ytVideoIds = new Set(ytVideos.map((v) => v.videoId));
+      const existingVideos: Video[] = channel.get('videos') || [];
+      for (const video of existingVideos) {
+        const videoId = video.get('youtubeId');
+        if (!ytVideoIds.has(videoId)) {
+          destroyedVideos.push(video.get('title'));
+          await video.destroy(); // or this.videoModel.destroy({ where: { id: video.id } });
+        } else {
+          const videoThumbnail = video.get('thumbnailUrl');
+          const videoTitle = video.get('title');
+          const videoDescription = video.get('description');
+          const youtubeVideo = ytVideos.find((v) => v.videoId === videoId);
+          if (
+            youtubeVideo &&
+            (videoThumbnail !== youtubeVideo.thumbnailUrl ||
+              videoTitle !== youtubeVideo.title ||
+              videoDescription !== youtubeVideo.description)
+          ) {
+            await video.update({
+              thumbnailUrl: youtubeVideo.thumbnailUrl,
+              title: youtubeVideo.title,
+              description: youtubeVideo.description,
+            });
+            updatedVideos.push(video.get('title'));
+          }
+        }
+      }
+    } catch (e) {
+      this.logger.error(
+        `Failed to remove deleted videos for channel "${channel.get('name')}": ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    if (destroyedVideos.length > 0) {
+      this.logger.log(
+        `Removed ${destroyedVideos.length} deleted videos from channel ${channel.get('name')} : ${destroyedVideos.join(', ')} .`,
+      );
+    }
+    if (updatedVideos.length > 0) {
+      this.logger.log(
+        `Updated ${updatedVideos.length} videos for channel ${channel.get('name')} : ${updatedVideos.join(', ')} .`,
+      );
+    }
   }
 
   async findAll(): Promise<Video[]> {

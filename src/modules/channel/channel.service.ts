@@ -59,7 +59,7 @@ export class ChannelService {
     this.logger.log(
       `Populating videos for channel: ${channel.get('youtubeHandle')} (ID: ${channel.id})`,
     );
-    this._populateVideosForChannel(channel);
+    void this._populateVideosForChannel(channel);
 
     return channel;
   }
@@ -126,6 +126,18 @@ export class ChannelService {
           );
         }
       }
+    }
+  }
+
+  async syncAllChannelsVideosFromYoutube() {
+    this.logger.log('Removing all deleted videos from all channels...');
+
+    const channels = await this.channelModel.findAll({
+      include: [{ model: Video }],
+    });
+
+    for (const channel of channels) {
+      await this.videoService.syncVideosFromYoutube(channel);
     }
   }
 

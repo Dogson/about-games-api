@@ -20,22 +20,22 @@ export class Channel extends Model {
   @Column({ type: DataType.INTEGER, primaryKey: true, autoIncrement: true })
   declare id: number;
 
-  @Unique
+  @Unique('name')
   @AllowNull(false)
   @Column(DataType.STRING(255))
   name!: string;
 
-  @Unique
+  @Unique('youtube_handle')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_handle' })
   youtubeHandle!: string;
 
-  @Unique
+  @Unique('youtube_id')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_id' })
   youtubeId!: string;
 
-  @Unique
+  @Unique('youtube_uploads_id')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_uploads_id' })
   youtubeUploadsId!: string;

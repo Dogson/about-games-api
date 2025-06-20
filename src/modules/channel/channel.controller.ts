@@ -42,6 +42,12 @@ export class ChannelController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Patch('syncAllChannelsVideos')
+  removeRemovedFromYoutube() {
+    return this.channelService.syncAllChannelsVideosFromYoutube();
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateChannelDto: UpdateChannelDto) {
     return this.channelService.update(+id, updateChannelDto);

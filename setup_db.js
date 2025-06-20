@@ -28,27 +28,27 @@ async function main() {
     multipleStatements: true,
   });
 
-  console.log('Connected to MySQL server.');
+  console.info('Connected to MySQL server.');
 
   // Créer la base si elle n'existe pas
   await connection.query(
     `CREATE DATABASE IF NOT EXISTS \`${DB_DATABASE_NAME}\`;`,
   );
-  console.log(`Database ${DB_DATABASE_NAME} ensured.`);
+  console.info(`Database ${DB_DATABASE_NAME} ensured.`);
 
   // Reconnecter en ciblant la base
   await connection.changeUser({ database: DB_DATABASE_NAME });
 
-  console.log('Running schema SQL...');
+  console.info('Running schema SQL...');
   await runSqlFile(connection, './db/db_schema.sql');
 
-  console.log('Running SQL referential actions...');
+  console.info('Running SQL referential actions...');
   await runSqlFile(connection, './db/db_referential_actions.sql');
 
-  console.log('Running populate SQL...');
+  console.info('Running populate SQL...');
   await runSqlFile(connection, './db/db_populate.sql');
 
-  console.log('Database setup complete.');
+  console.info('Database setup complete.');
 
   await connection.end();
 }

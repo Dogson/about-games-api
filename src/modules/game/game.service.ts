@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { Game } from './entities/game.entity';
@@ -10,13 +16,18 @@ import { Op, Sequelize, WhereOptions } from 'sequelize';
 import ApiConfig from '../../api.config';
 import type { IGDBGame } from '../igdb/dto/igdb-get-game.dto';
 import { instanceToPlain } from 'class-transformer';
+import { IgdbService } from '../igdb/igdb.service';
 
 @Injectable()
 export class GameService {
   constructor(
     @InjectModel(Game)
     private gameModel: typeof Game,
+    @Inject(forwardRef(() => IgdbService))
+    private readonly igdbService: IgdbService,
   ) {}
+
+  private readonly logger = new Logger(GameService.name);
 
   async create(createGameDto: CreateGameDto): Promise<Game> {
     return await this.gameModel.create({ ...createGameDto });
@@ -145,26 +156,70 @@ export class GameService {
   }
 
   mapIgdbGamesToCreateGamesDTO(igdbGame: IGDBGame): CreateGameDto {
-    const firstReleaseDate = Math.min(
-      ...(igdbGame.release_dates || []).map((date) => date.date),
-    );
+    const firstReleaseDate =
+      igdbGame.release_dates && igdbGame.release_dates.length > 0
+        ? Math.min(...(igdbGame.release_dates || []).map((date) => date.date))
+        : undefined;
 
     return {
       title: igdbGame.name,
       igdbId: igdbGame.id,
       boxartImg: igdbGame.cover?.url
         ? `https:${igdbGame.cover.url.replace('t_thumb', 't_cover_big')}`
-        : undefined,
+        : null,
       coverImg: igdbGame.screenshots?.[0]?.url
         ? `https:${igdbGame.screenshots?.[0]?.url.replace('t_thumb', 't_1080p')}`
-        : undefined,
-      releaseDate: firstReleaseDate
-        ? new Date(firstReleaseDate * 1000)
-        : undefined,
+        : null,
+      releaseDate: firstReleaseDate ? new Date(firstReleaseDate * 1000) : null,
       companies: (igdbGame.involved_companies || []).map(
         (company) => company.company.name,
       ),
       ignoreDuringSearch: false,
     };
+  }
+
+  async syncAllGamesWithIgdb() {
+    const games = await this.gameModel.findAll();
+
+    for (const game of games) {
+      const igdbGame = await this.igdbService.getIGDBGameById(
+        game.get('igdbId'),
+      );
+
+      if (!igdbGame) {
+        console.warn(
+          `No IGDB data found for game with ID ${game.get('title')}`,
+        );
+      } else {
+        const updateDTOFromIgdb = this.mapIgdbGamesToCreateGamesDTO(igdbGame);
+        const gameData = game.get({ plain: true }) as UpdateGameDto;
+
+        const keysToUpdate = Object.keys(updateDTOFromIgdb).filter((key) => {
+          if (!updateDTOFromIgdb[key] && !gameData[key]) {
+            return false;
+          }
+          if (Array.isArray(updateDTOFromIgdb[key])) {
+            return (
+              JSON.stringify(updateDTOFromIgdb[key]) !==
+              JSON.stringify(gameData[key])
+            );
+          }
+          if (key === 'releaseDate') {
+            return (
+              new Date(updateDTOFromIgdb[key] as Date).getTime() !==
+              new Date(gameData[key] as Date).getTime()
+            );
+          }
+          return updateDTOFromIgdb[key] !== gameData[key];
+        });
+
+        if (keysToUpdate.length > 0) {
+          await this.update(game.get('id'), updateDTOFromIgdb);
+          this.logger.log(
+            `Updated game ${game.get('title')} with new IGDB data : ${keysToUpdate.map((key) => `${key}=${updateDTOFromIgdb[key]}`).join(', ')}.`,
+          );
+        }
+      }
+    }
   }
 }

@@ -28,7 +28,7 @@ export class Video extends Model {
   @Column(DataType.TEXT)
   title!: string;
 
-  @Unique
+  @Unique('youtube_id')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_id' })
   youtubeId!: string;

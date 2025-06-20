@@ -8,9 +8,9 @@ import { VideoModule } from './modules/video/video.module';
 import { UserModule } from './modules/user/user.module';
 import { GameModule } from './modules/game/game.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { YoutubeService } from './modules/youtube/youtube.service';
-import { IgdbService } from './modules/igdb/igdb.service';
 import { IgdbModule } from './modules/igdb/igdb.module';
+import { CronModule } from './modules/cron/cron.module';
+import { YoutubeModule } from './modules/youtube/youtube.module';
 
 @Module({
   imports: [
@@ -35,12 +35,16 @@ import { IgdbModule } from './modules/igdb/igdb.module';
     }),
     ChannelModule,
     VideoModule,
+    IgdbModule,
+    CronModule,
+    YoutubeModule,
     UserModule,
     GameModule,
     AuthModule,
     IgdbModule,
+    CronModule,
   ],
   controllers: [AppController],
-  providers: [AppService, YoutubeService, IgdbService],
+  providers: [AppService],
 })
 export class AppModule {}

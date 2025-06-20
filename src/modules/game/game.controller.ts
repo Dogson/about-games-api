@@ -37,6 +37,12 @@ export class GameController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Patch('syncAllGames')
+  syncAllGames() {
+    return this.gameService.syncAllGamesWithIgdb();
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateGameDto: UpdateGameDto) {
     return this.gameService.update(+id, updateGameDto);

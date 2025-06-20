@@ -9,6 +9,7 @@ import { Channel } from '../channel/entities/channel.entity';
 import { IgdbModule } from '../igdb/igdb.module';
 import { GameModule } from '../game/game.module';
 import { ChannelModule } from '../channel/channel.module';
+import { YoutubeModule } from '../youtube/youtube.module';
 
 @Module({
   controllers: [VideoController],
@@ -17,6 +18,7 @@ import { ChannelModule } from '../channel/channel.module';
     SequelizeModule.forFeature([Game, VideosHasGames, Video, Channel]),
     IgdbModule,
     GameModule,
+    YoutubeModule,
     forwardRef(() => ChannelModule),
   ],
   exports: [VideoService],
