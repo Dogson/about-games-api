@@ -174,15 +174,15 @@ export class IgdbService {
     // === 5. Extract compound capitalized/numeric patterns ===
     const titleRegex = new RegExp(
       String.raw`\b(` +
-        String.raw`(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` +
+        String.raw`(?:\d+[:]?|[\p{Lu}][\p{L}\p{N}'’:-]*|[\p{Lu}]{2,})` +
         String.raw`(?:` +
-        String.raw`(?:\s+[a-z]{1,4})+` +
-        String.raw`\s+(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` +
+        String.raw`(?:\s+[\p{Ll}]{1,4})+` +
+        String.raw`\s+(?:\d+[:]?|[\p{Lu}][\p{L}\p{N}'’:-]*|[\p{Lu}]{2,})` +
         String.raw`|` +
-        String.raw`\s+(?:\d+[:]?|[A-Z][a-z0-9'’:-]*|[A-Z]{2,})` +
+        String.raw`\s+(?:\d+[:]?|[\p{Lu}][\p{L}\p{N}'’:-]*|[\p{Lu}]{2,})` +
         String.raw`)+` +
         String.raw`)\b`,
-      'g',
+      'gu',
     );
 
     while ((match = titleRegex.exec(cleanedText)) !== null) {
@@ -203,7 +203,7 @@ export class IgdbService {
     // === 6. Track words in multi-word titles ===
     const wordsInsideMultiWordTitles = new Set<string>();
     for (const title of multiWordCandidates) {
-      const words = title.split(/[\s:’‘'"-]+/).filter(Boolean);
+      const words = title.split(/[\s:’‘'"-]+/u).filter(Boolean);
       words.forEach((w) => wordsInsideMultiWordTitles.add(w.toLowerCase()));
     }
 
@@ -312,7 +312,7 @@ export class IgdbService {
         `search "${name}"; 
         fields
           id,
-          category,
+          game_type,
           name,
           total_rating_count,
           alternative_names.name,
@@ -321,7 +321,7 @@ export class IgdbService {
           cover.url,
           screenshots.url;
       limit 50;
-      where category != 5 & category != 3 & release_dates.date_format=0;`,
+      where game_type != 5 & game_type != 3 & release_dates.date_format=0;`,
         {
           headers: {
             'Client-ID': this.apiClientId,
@@ -354,7 +354,7 @@ export class IgdbService {
         this.apiHost,
         `fields
           id,
-          category,
+          game_type,
           name,
           release_dates.date,
           involved_companies.company.name,
