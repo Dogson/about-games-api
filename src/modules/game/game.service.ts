@@ -39,12 +39,49 @@ export class GameService {
     const offset = (page - 1) * limit;
     const { search, ignoreDuringSearch, igdbId } = findAllGamesDto;
 
+    // --- Build search conditions ---
+    const searchConditions: WhereOptions[] = [];
+
+    // Full-text relevance search (NATURAL LANGUAGE)
     const relevanceSearch = search
       ? Sequelize.literal(
           `MATCH(Game.title) AGAINST(${this.escapeSearch(search)} IN NATURAL LANGUAGE MODE)`,
         )
       : undefined;
 
+    if (relevanceSearch) {
+      searchConditions.push(Sequelize.where(relevanceSearch, { [Op.gt]: 0 }));
+    }
+
+    // Partial word search using REGEXP (case-insensitive)
+    if (search) {
+      const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      searchConditions.push({
+        title: { [Op.regexp]: `(?i)\\b${escapedSearch}` }, // (?i) makes it case-insensitive
+      });
+    }
+
+    // Combine search conditions with OR
+    const combinedSearchCondition =
+      searchConditions.length > 0 ? { [Op.or]: searchConditions } : undefined;
+
+    // --- Other filters (AND) ---
+    const filterConditions: WhereOptions[] = [];
+
+    if (ignoreDuringSearch !== undefined) {
+      filterConditions.push({ ignoreDuringSearch: ignoreDuringSearch ? 1 : 0 });
+    }
+
+    if (igdbId) {
+      filterConditions.push({ igdbId });
+    }
+
+    // --- Final WHERE ---
+    const where: WhereOptions = combinedSearchCondition
+      ? { [Op.and]: [combinedSearchCondition, ...filterConditions] }
+      : { [Op.and]: filterConditions };
+
+    // --- Attributes: videos count + relevance ---
     const attributes = {
       include: [
         [
@@ -59,33 +96,20 @@ export class GameService {
       ] as [string | ReturnType<typeof Sequelize.literal>, string][],
     };
 
-    const andConditions: WhereOptions[] = [];
-
-    if (relevanceSearch) {
-      andConditions.push(Sequelize.where(relevanceSearch, { [Op.gt]: 0 }));
-    }
-
-    if (ignoreDuringSearch !== undefined) {
-      andConditions.push({ ignoreDuringSearch: ignoreDuringSearch ? 1 : 0 });
-    }
-
-    if (igdbId) {
-      andConditions.push({ igdbId });
-    }
-
-    // Compose the final where clause
-    const where =
-      andConditions.length > 0 ? { [Op.and]: andConditions } : undefined;
-
+    // --- Execute query with SQL logging ---
     const result = await this.gameModel.findAndCountAll({
       attributes,
       where,
       order: relevanceSearch
-        ? [[Sequelize.col('relevance'), 'DESC']]
+        ? [
+            [Sequelize.col('relevance'), 'DESC'],
+            ['updated_at', 'DESC'],
+          ]
         : [['updated_at', 'DESC']],
       offset,
       limit,
       distinct: true,
+      logging: (sql) => console.log('Final SQL:', sql),
     });
 
     return {
