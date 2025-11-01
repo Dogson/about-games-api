@@ -104,8 +104,12 @@ export class GameService {
         ? [
             [Sequelize.col('relevance'), 'DESC'],
             ['updated_at', 'DESC'],
+            ['id', 'ASC'], // <-- deterministic tie breaker
           ]
-        : [['updated_at', 'DESC']],
+        : [
+            ['updated_at', 'DESC'],
+            ['id', 'ASC'], // <-- deterministic tie breaker
+          ],
       offset,
       limit,
       distinct: true,
