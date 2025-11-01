@@ -31,4 +31,14 @@ export class FindAllGamesDto {
   })
   @IsBoolean()
   ignoreDuringSearch?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true' || value === '1';
+    }
+    return Boolean(value);
+  })
+  @IsBoolean()
+  onlyValidated?: boolean;
 }

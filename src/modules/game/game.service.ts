@@ -37,12 +37,11 @@ export class GameService {
     const page = findAllGamesDto.page ?? 1;
     const limit = findAllGamesDto.limit ?? ApiConfig.GAMES_LIMIT_DEFAULT;
     const offset = (page - 1) * limit;
-    const { search, ignoreDuringSearch, igdbId } = findAllGamesDto;
+    const { search, ignoreDuringSearch, igdbId, onlyValidated } =
+      findAllGamesDto;
 
-    // --- Build search conditions ---
     const searchConditions: WhereOptions[] = [];
 
-    // Full-text relevance search (NATURAL LANGUAGE)
     const relevanceSearch = search
       ? Sequelize.literal(
           `MATCH(Game.title) AGAINST(${this.escapeSearch(search)} IN NATURAL LANGUAGE MODE)`,
@@ -53,19 +52,16 @@ export class GameService {
       searchConditions.push(Sequelize.where(relevanceSearch, { [Op.gt]: 0 }));
     }
 
-    // Partial word search using REGEXP (case-insensitive)
     if (search) {
       const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       searchConditions.push({
-        title: { [Op.regexp]: `(?i)\\b${escapedSearch}` }, // (?i) makes it case-insensitive
+        title: { [Op.regexp]: `(?i)\\b${escapedSearch}` },
       });
     }
 
-    // Combine search conditions with OR
     const combinedSearchCondition =
       searchConditions.length > 0 ? { [Op.or]: searchConditions } : undefined;
 
-    // --- Other filters (AND) ---
     const filterConditions: WhereOptions[] = [];
 
     if (ignoreDuringSearch !== undefined) {
@@ -76,19 +72,32 @@ export class GameService {
       filterConditions.push({ igdbId });
     }
 
-    // --- Final WHERE ---
+    // ✅ Apply verified filter only if requested
+    if (onlyValidated) {
+      filterConditions.push(
+        Sequelize.literal(`EXISTS (
+        SELECT 1
+        FROM videos_has_games AS vhg
+        INNER JOIN videos AS v ON v.id = vhg.video_id
+        WHERE vhg.game_id = Game.id
+          AND v.validated = 1
+      )`),
+      );
+    }
+
     const where: WhereOptions = combinedSearchCondition
       ? { [Op.and]: [combinedSearchCondition, ...filterConditions] }
       : { [Op.and]: filterConditions };
 
-    // --- Attributes: videos count + relevance ---
     const attributes = {
       include: [
         [
           Sequelize.literal(`(
           SELECT COUNT(*)
           FROM videos_has_games AS vhg
+          INNER JOIN videos AS v ON v.id = vhg.video_id
           WHERE vhg.game_id = Game.id
+            ${onlyValidated ? 'AND v.validated = 1' : ''}
         )`),
           'videosCount',
         ],
@@ -96,7 +105,6 @@ export class GameService {
       ] as [string | ReturnType<typeof Sequelize.literal>, string][],
     };
 
-    // --- Execute query with SQL logging ---
     const result = await this.gameModel.findAndCountAll({
       attributes,
       where,
@@ -104,11 +112,11 @@ export class GameService {
         ? [
             [Sequelize.col('relevance'), 'DESC'],
             ['updated_at', 'DESC'],
-            ['id', 'ASC'], // <-- deterministic tie breaker
+            ['id', 'ASC'],
           ]
         : [
             ['updated_at', 'DESC'],
-            ['id', 'ASC'], // <-- deterministic tie breaker
+            ['id', 'ASC'],
           ],
       offset,
       limit,
