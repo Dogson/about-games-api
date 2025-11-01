@@ -109,7 +109,6 @@ export class GameService {
       offset,
       limit,
       distinct: true,
-      logging: (sql) => console.log('Final SQL:', sql),
     });
 
     return {

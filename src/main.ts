@@ -9,13 +9,18 @@ async function bootstrap() {
   // Enable validation globally
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // strips properties that do not have decorators
-      // forbidNonWhitelisted: false, // throw error if extra props sent
-      transform: true, // transform payloads to DTO instances
+      whitelist: true,
+      transform: true,
     }),
   );
 
   app.useGlobalFilters(new SequelizeExceptionFilter());
+
+  // Enable CORS for all localhost origins
+  app.enableCors({
+    origin: /http:\/\/localhost:\d+/,
+    credentials: true, // if you want cookies/auth headers to work
+  });
 
   await app.listen(process.env.PORT ?? 4000);
 }
