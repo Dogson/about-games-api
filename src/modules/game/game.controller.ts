@@ -31,6 +31,12 @@ export class GameController {
     return this.gameService.findAll(query);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('igdbSearch')
+  igdbSearch(@Query('search') search: string) {
+    return this.gameService.igdbSearch(search);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.gameService.findOne(+id);
