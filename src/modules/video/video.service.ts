@@ -191,7 +191,6 @@ export class VideoService {
 
     await existingVideo.update({
       ...videoData,
-      validated: true,
       gamesFoundCount,
       gamesCount: games?.length || 0,
     });
