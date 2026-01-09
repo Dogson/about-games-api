@@ -4,7 +4,6 @@ import {
   IsArray,
   IsOptional,
   IsString,
-  ArrayNotEmpty,
   IsBoolean,
   IsDate,
 } from 'class-validator';
@@ -27,10 +26,10 @@ export class CreateGameDto {
   ignoreDuringSearch?: boolean;
 
   @IsArray()
-  @ArrayNotEmpty()
   @IsString({ each: true })
   companies!: string[];
 
+  @IsOptional()
   @IsString()
   coverImg!: string | null;
 
