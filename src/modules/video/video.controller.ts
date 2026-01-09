@@ -6,11 +6,13 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { VideoService } from './video.service';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { UpdateVideoDto } from './dto/update-video.dto';
+import { FindAllVideosDto } from './dto/find-all-videos.dto';
 import Routes from '../../routes.config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -25,8 +27,8 @@ export class VideoController {
   }
 
   @Get()
-  findAll() {
-    return this.videoService.findAll();
+  findAll(@Query() query: FindAllVideosDto) {
+    return this.videoService.findAll(query);
   }
 
   @Get(':id')

@@ -8,8 +8,10 @@ import {
 } from '@nestjs/common';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { UpdateVideoDto } from './dto/update-video.dto';
+import { FindAllVideosDto } from './dto/find-all-videos.dto';
 import { InjectModel } from '@nestjs/sequelize';
 import { Video } from './entities/video.entity';
+import { WhereOptions } from 'sequelize';
 import { Game } from '../game/entities/game.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import { IgdbService } from '../igdb/igdb.service';
@@ -125,8 +127,15 @@ export class VideoService {
     }
   }
 
-  async findAll(): Promise<Video[]> {
+  async findAll(findAllVideosDto?: FindAllVideosDto): Promise<Video[]> {
+    const where: WhereOptions<Video> = {};
+
+    if (findAllVideosDto?.validated !== undefined) {
+      where.validated = findAllVideosDto.validated;
+    }
+
     return await this.videoModel.findAll({
+      where,
       include: [
         {
           model: Game,
