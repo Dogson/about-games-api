@@ -261,4 +261,8 @@ export class GameService {
   async igdbSearch(search: string): Promise<IGDBGame[]> {
     return this.igdbService.queryIGDBByName(search);
   }
+
+  async igdbSearchWithinText(text: string): Promise<IGDBGame[]> {
+    return this.igdbService.extractMentionedGames(text);
+  }
 }

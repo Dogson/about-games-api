@@ -15,6 +15,7 @@ import { UpdateGameDto } from './dto/update-game.dto';
 import Routes from '../../routes.config';
 import { FindAllGamesDto } from './dto/find-all-games.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { IgdbSearchWithinTextDto } from './dto/igdb-search-within-text.dto';
 
 @Controller(Routes.GAMES)
 export class GameController {
@@ -35,6 +36,12 @@ export class GameController {
   @Get('igdbSearch')
   igdbSearch(@Query('search') search: string) {
     return this.gameService.igdbSearch(search);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('igdbSearchWithinText')
+  igdbSearchWithinText(@Body() dto: IgdbSearchWithinTextDto) {
+    return this.gameService.igdbSearchWithinText(dto.text);
   }
 
   @Get(':id')
