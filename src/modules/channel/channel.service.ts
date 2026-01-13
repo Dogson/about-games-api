@@ -19,6 +19,8 @@ export class ChannelService {
   constructor(
     @InjectModel(Channel)
     private channelModel: typeof Channel,
+    @InjectModel(Video)
+    private videoModel: typeof Video,
     private readonly youtubeService: YoutubeService,
     private readonly videoService: VideoService,
   ) {}
@@ -212,10 +214,30 @@ export class ChannelService {
   }
 
   async remove(id: number): Promise<void> {
-    const deletedRows = await this.channelModel.destroy({ where: { id } });
-    if (deletedRows === 0) {
+    const channel = await this.channelModel.findByPk(id, {
+      include: [{ model: Video }],
+    });
+
+    if (!channel) {
       throw new NotFoundException(`Channel with id ${id} not found`);
     }
+
+    // Delete all videos associated with this channel
+    const videos = channel.get('videos') || [];
+    if (videos.length > 0) {
+      this.logger.log(
+        `Deleting ${videos.length} videos for channel "${channel.get('name')}" (ID: ${id})`,
+      );
+      await this.videoModel.destroy({
+        where: { ytChannelId: id },
+      });
+    }
+
+    // Delete the channel
+    await this.channelModel.destroy({ where: { id } });
+    this.logger.log(
+      `Channel "${channel.get('name')}" (ID: ${id}) deleted successfully`,
+    );
   }
 
   async generateMissingVideosForAllChannels() {

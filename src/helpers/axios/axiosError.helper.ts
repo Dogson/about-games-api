@@ -2,14 +2,17 @@ export function isAxiosError(err: unknown): err is {
   response: { data: { error: { message: string } }; status: number };
 } {
   return (
-    err &&
+    err !== null &&
     typeof err === 'object' &&
     'response' in err &&
-    err.response &&
+    err.response !== null &&
+    typeof err.response === 'object' &&
     'data' in err.response &&
-    err.response.data &&
+    err.response.data !== null &&
+    typeof err.response.data === 'object' &&
     'error' in err.response.data &&
-    err.response.data.error &&
+    err.response.data.error !== null &&
+    typeof err.response.data.error === 'object' &&
     'message' in err.response.data.error
   );
 }
