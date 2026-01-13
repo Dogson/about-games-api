@@ -22,40 +22,40 @@ export class Video extends Model {
   @ForeignKey(() => Channel)
   @AllowNull(false)
   @Column({ type: DataType.INTEGER, field: 'yt_channel_id' })
-  ytChannelId!: number;
+  declare ytChannelId: number;
 
   @AllowNull(false)
   @Column(DataType.TEXT)
-  title!: string;
+  declare title: string;
 
   @Unique('youtube_id')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_id' })
-  youtubeId!: string;
+  declare youtubeId: string;
 
   @AllowNull(false)
   @Column(DataType.TEXT)
-  description!: string;
+  declare description: string;
 
   @AllowNull(true)
   @Column({ type: DataType.DATE, field: 'release_date' })
-  releaseDate?: Date;
+  declare releaseDate?: Date;
 
   @AllowNull(false)
   @Column({ type: DataType.TEXT, field: 'thumbnail_url' })
-  thumbnailUrl!: string;
+  declare thumbnailUrl: string;
 
   @AllowNull(true)
   @Column(DataType.BOOLEAN)
-  validated?: boolean;
+  declare validated?: boolean;
 
   @AllowNull(true)
   @Column({ type: DataType.INTEGER, field: 'games_found_count' })
-  gamesFoundCount?: number;
+  declare gamesFoundCount?: number;
 
   @AllowNull(true)
   @Column({ type: DataType.INTEGER, field: 'games_count' })
-  gamesCount?: number;
+  declare gamesCount?: number;
 
   @BelongsTo(() => Channel)
   ytChannel!: Channel;

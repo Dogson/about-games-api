@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-export function isAxiosError(err: any): err is {
+export function isAxiosError(err: unknown): err is {
   response: { data: { error: { message: string } }; status: number };
 } {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return (
     err &&
     typeof err === 'object' &&

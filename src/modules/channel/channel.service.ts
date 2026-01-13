@@ -11,6 +11,8 @@ import { Channel } from './entities/channel.entity';
 import { Video } from '../video/entities/video.entity';
 import { YoutubeService } from '../youtube/youtube.service';
 import { VideoService } from '../video/video.service';
+import { Sequelize } from 'sequelize';
+import { ChannelResponseDto } from './dto/channel-response.dto';
 
 @Injectable()
 export class ChannelService {
@@ -23,7 +25,9 @@ export class ChannelService {
 
   private readonly logger = new Logger(ChannelService.name);
 
-  async create(createChannelDto: CreateChannelDto): Promise<Channel> {
+  async create(
+    createChannelDto: CreateChannelDto,
+  ): Promise<ChannelResponseDto> {
     // check if channel with the same YouTube handle already exists
     const existingChannel = await this.channelModel.findOne({
       where: { youtubeHandle: createChannelDto.youtubeHandle },
@@ -46,8 +50,11 @@ export class ChannelService {
       );
     }
 
+    // Flatten parsingOptions if provided
+    const channelData = this._flattenParsingOptions(createChannelDto);
+
     const channel = await this.channelModel.create({
-      ...createChannelDto,
+      ...channelData,
       youtubeId: channelInfo.id,
       name: channelInfo.snippet.title,
       description: channelInfo.snippet.description,
@@ -61,41 +68,147 @@ export class ChannelService {
     );
     void this._populateVideosForChannel(channel);
 
-    return channel;
+    // Get video count for the newly created channel
+    const channelWithCount = await this.channelModel.findByPk(channel.id, {
+      attributes: {
+        include: [
+          [Sequelize.fn('COUNT', Sequelize.col('videos.id')), 'videosCount'],
+        ],
+      },
+      include: [
+        {
+          model: Video,
+          attributes: [],
+          required: false,
+        },
+      ],
+      group: ['Channel.id'],
+    });
+    return this._transformChannelResponse(channelWithCount!);
   }
 
-  async findAll(): Promise<Channel[]> {
-    return await this.channelModel.findAll({
-      include: [{ model: Video }],
+  async findAll(): Promise<ChannelResponseDto[]> {
+    const channels = await this.channelModel.findAll({
+      attributes: {
+        include: [
+          [Sequelize.fn('COUNT', Sequelize.col('videos.id')), 'videosCount'],
+        ],
+      },
+      include: [
+        {
+          model: Video,
+          attributes: [],
+          required: false,
+        },
+      ],
+      group: ['Channel.id'],
     });
+
+    return channels.map((channel) => this._transformChannelResponse(channel));
+  }
+
+  private _transformChannelResponse(channel: Channel): ChannelResponseDto {
+    const plainChannel = channel.get({ plain: true }) as Channel & {
+      videosCount?: number;
+    };
+    const {
+      parsingAttribute,
+      ignoreEpisodesContaining,
+      ignoreEpisodesMissing,
+      ignoreSearchIn,
+      endParsingAfter,
+      videos,
+      ...rest
+    } = plainChannel;
+
+    const result: ChannelResponseDto = {
+      ...rest,
+      parsingOptions: {
+        parsingAttribute,
+        ignoreEpisodesContaining,
+        ignoreEpisodesMissing,
+        ignoreSearchIn,
+        endParsingAfter,
+      },
+    };
+
+    // If videos array is present, include it; otherwise use videosCount
+    if (videos !== undefined) {
+      result.videos = videos;
+    } else {
+      result.videosCount = plainChannel.videosCount ?? 0;
+    }
+
+    return result;
   }
 
   async findOne(id: number): Promise<Channel> {
-    const channel = await this.channelModel.findByPk(id, {
-      include: [{ model: Video }],
-    });
+    const channel = await this.channelModel.findByPk(id);
     if (!channel) {
       throw new NotFoundException(`Channel with id ${id} not found`);
     }
     return channel;
   }
 
+  async findOneForApi(id: number): Promise<ChannelResponseDto> {
+    const channel = await this.channelModel.findByPk(id, {
+      include: [{ model: Video }],
+    });
+    if (!channel) {
+      throw new NotFoundException(`Channel with id ${id} not found`);
+    }
+    return this._transformChannelResponse(channel);
+  }
+
   async update(
     id: number,
     updateChannelDto: UpdateChannelDto,
-  ): Promise<Channel> {
+  ): Promise<ChannelResponseDto> {
     const existingChannel = await this.channelModel.findByPk(id);
 
     if (!existingChannel) {
       throw new NotFoundException(`Channel with id ${id} not found`);
     }
 
-    await this.channelModel.update(updateChannelDto, {
+    // Flatten parsingOptions if provided
+    const updateData = this._flattenParsingOptions(updateChannelDto);
+
+    await this.channelModel.update(updateData, {
       where: { id },
     });
 
-    const updatedChannel = await this.channelModel.findByPk(id);
-    return updatedChannel!;
+    const updatedChannel = await this.channelModel.findByPk(id, {
+      attributes: {
+        include: [
+          [Sequelize.fn('COUNT', Sequelize.col('videos.id')), 'videosCount'],
+        ],
+      },
+      include: [
+        {
+          model: Video,
+          attributes: [],
+          required: false,
+        },
+      ],
+      group: ['Channel.id'],
+    });
+    return this._transformChannelResponse(updatedChannel!);
+  }
+
+  private _flattenParsingOptions(
+    dto: CreateChannelDto | UpdateChannelDto,
+  ): Partial<Channel> {
+    const { parsingOptions, ...rest } = dto;
+    if (parsingOptions) {
+      return {
+        ...rest,
+        parsingAttribute: parsingOptions.parsingAttribute,
+        ignoreEpisodesContaining: parsingOptions.ignoreEpisodesContaining,
+        ignoreSearchIn: parsingOptions.ignoreSearchIn,
+        endParsingAfter: parsingOptions.endParsingAfter,
+      };
+    }
+    return rest;
   }
 
   async remove(id: number): Promise<void> {

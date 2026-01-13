@@ -1,17 +1,10 @@
-import { IsString, IsNotEmpty, IsArray } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
-export class CreateChannelDto {
-  @IsString()
-  @IsNotEmpty()
-  youtubeHandle!: string;
-
+class ParsingOptionsDto {
   @IsString()
   @IsNotEmpty()
   parsingAttribute!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  language!: string;
 
   @IsArray()
   ignoreEpisodesContaining!: string[];
@@ -24,4 +17,18 @@ export class CreateChannelDto {
 
   @IsArray()
   endParsingAfter!: string[];
+}
+
+export class CreateChannelDto {
+  @IsString()
+  @IsNotEmpty()
+  youtubeHandle!: string;
+
+  @ValidateNested()
+  @Type(() => ParsingOptionsDto)
+  parsingOptions!: ParsingOptionsDto;
+
+  @IsString()
+  @IsNotEmpty()
+  language!: string;
 }

@@ -4,6 +4,11 @@ import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 import type { User } from '../user/entities/user.entity';
 
+export interface JwtPayload {
+  sub: number;
+  username: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -36,7 +41,7 @@ export class AuthService {
     return userInfo;
   }
 
-  sign(payload: any) {
+  sign(payload: JwtPayload) {
     return this.jwtService.sign(payload);
   }
 }

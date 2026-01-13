@@ -13,7 +13,7 @@ export interface YouTubeChannelStatistics {
   viewCount: string;
   subscriberCount: string;
   hiddenSubscriberCount: boolean;
-  videoCount: string;
+  videosCount: string;
 }
 
 export interface YouTubeChannel {

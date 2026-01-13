@@ -23,57 +23,57 @@ export class Channel extends Model {
   @Unique('name')
   @AllowNull(false)
   @Column(DataType.STRING(255))
-  name!: string;
+  declare name: string;
 
   @Unique('youtube_handle')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_handle' })
-  youtubeHandle!: string;
+  declare youtubeHandle: string;
 
   @Unique('youtube_id')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_id' })
-  youtubeId!: string;
+  declare youtubeId: string;
 
   @Unique('youtube_uploads_id')
   @AllowNull(false)
   @Column({ type: DataType.STRING(255), field: 'youtube_uploads_id' })
-  youtubeUploadsId!: string;
+  declare youtubeUploadsId: string;
 
   @AllowNull(true)
   @Column(DataType.TEXT)
-  description?: string;
+  declare description?: string;
 
   @AllowNull(true)
   @Column({ type: DataType.TEXT, field: 'thumbnail_url' })
-  thumbnailUrl?: string;
+  declare thumbnailUrl?: string;
 
   @AllowNull(false)
   @Column(DataType.STRING(45))
-  language!: string;
+  declare language: string;
 
   @AllowNull(true)
   @Column({
     type: DataType.STRING(255),
     field: 'parsing_attribute',
   })
-  parsingAttribute!: string;
+  declare parsingAttribute: string;
 
   @AllowNull(true)
   @JsonArrayField('ignore_episodes_containing')
-  ignoreEpisodesContaining!: string[];
+  declare ignoreEpisodesContaining: string[];
 
   @AllowNull(true)
   @JsonArrayField('ignore_episodes_missing')
-  ignoreEpisodesMissing!: string[];
+  declare ignoreEpisodesMissing: string[];
 
   @AllowNull(true)
   @JsonArrayField('ignore_search_in')
-  ignoreSearchIn!: string[];
+  declare ignoreSearchIn: string[];
 
   @AllowNull(true)
   @JsonArrayField('end_parsing_after')
-  endParsingAfter!: string[];
+  declare endParsingAfter: string[];
 
   @HasMany(() => Video)
   videos!: Video[];

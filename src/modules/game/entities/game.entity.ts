@@ -20,28 +20,28 @@ export class Game extends Model {
 
   @AllowNull(false)
   @Column({ type: DataType.INTEGER, field: 'igdb_id' })
-  igdbId!: number;
+  declare igdbId: number;
 
   @AllowNull(false)
   @NotEmpty
   @Column(DataType.TEXT)
-  title!: string;
+  declare title: string;
 
   @AllowNull(true)
   @Column({ type: DataType.DATE, field: 'release_date' })
-  releaseDate?: Date;
+  declare releaseDate?: Date;
 
   @AllowNull(false)
   @JsonArrayField('companies')
-  companies!: string[];
+  declare companies: string[];
 
   @AllowNull(true)
   @Column({ type: DataType.TEXT, field: 'cover_img' })
-  coverImg?: string;
+  declare coverImg?: string;
 
   @AllowNull(true)
   @Column({ type: DataType.TEXT, field: 'boxart_img' })
-  boxartImg?: string;
+  declare boxartImg?: string;
 
   @AllowNull(true)
   @Default(0)
@@ -49,7 +49,7 @@ export class Game extends Model {
     type: DataType.BOOLEAN,
     field: 'ignore_during_search',
   })
-  ignoreDuringSearch?: boolean;
+  declare ignoreDuringSearch?: boolean;
 
   @BelongsToMany(() => Video, () => VideosHasGames)
   videos!: Video[];
