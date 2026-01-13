@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS `about_games_db`.`videos` (
                                                          `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                                          `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                                          `validated` TINYINT NOT NULL DEFAULT 0,
+                                                         `ignored` TINYINT NOT NULL DEFAULT 0,
                                                          `games_found_count` INT NOT NULL DEFAULT 0,
                                                          `games_count` INT NOT NULL DEFAULT 0,
                                                          `youtube_id` VARCHAR(255) NOT NULL,

@@ -49,6 +49,10 @@ export class Video extends Model {
   @Column(DataType.BOOLEAN)
   declare validated?: boolean;
 
+  @AllowNull(false)
+  @Column({ type: DataType.BOOLEAN, defaultValue: false })
+  declare ignored: boolean;
+
   @AllowNull(true)
   @Column({ type: DataType.INTEGER, field: 'games_found_count' })
   declare gamesFoundCount?: number;

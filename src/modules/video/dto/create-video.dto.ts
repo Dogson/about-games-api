@@ -33,4 +33,8 @@ export class CreateVideoDto {
   @IsOptional()
   @IsBoolean()
   validated?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  ignored?: boolean;
 }
