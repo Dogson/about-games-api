@@ -2,7 +2,6 @@ import {
   forwardRef,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateGameDto } from './dto/create-game.dto';
@@ -17,6 +16,7 @@ import ApiConfig from '../../api.config';
 import type { IGDBGame } from '../igdb/dto/igdb-get-game.dto';
 import { instanceToPlain } from 'class-transformer';
 import { IgdbService } from '../igdb/igdb.service';
+import { AppLogger } from '../logging/app-logger.service';
 
 @Injectable()
 export class GameService {
@@ -25,9 +25,8 @@ export class GameService {
     private gameModel: typeof Game,
     @Inject(forwardRef(() => IgdbService))
     private readonly igdbService: IgdbService,
+    private readonly appLogger: AppLogger,
   ) {}
-
-  private readonly logger = new Logger(GameService.name);
 
   async create(createGameDto: CreateGameDto): Promise<Game> {
     return await this.gameModel.create({ ...createGameDto });
@@ -250,7 +249,7 @@ export class GameService {
 
         if (keysToUpdate.length > 0) {
           await this.update(game.get('id'), updateDTOFromIgdb);
-          this.logger.log(
+          this.appLogger.log(
             `Updated game ${game.get('title')} with new IGDB data : ${keysToUpdate.map((key) => `${key}=${updateDTOFromIgdb[key]}`).join(', ')}.`,
           );
         }

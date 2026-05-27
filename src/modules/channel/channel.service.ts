@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateChannelDto } from './dto/create-channel.dto';
@@ -13,6 +12,8 @@ import { YoutubeService } from '../youtube/youtube.service';
 import { VideoService } from '../video/video.service';
 import { Sequelize } from 'sequelize';
 import { ChannelResponseDto } from './dto/channel-response.dto';
+import { AppLogger } from '../logging/app-logger.service';
+import { createProgressBar } from 'src/helpers/ascii/progressBar';
 
 @Injectable()
 export class ChannelService {
@@ -23,9 +24,8 @@ export class ChannelService {
     private videoModel: typeof Video,
     private readonly youtubeService: YoutubeService,
     private readonly videoService: VideoService,
+    private readonly appLogger: AppLogger,
   ) {}
-
-  private readonly logger = new Logger(ChannelService.name);
 
   async create(
     createChannelDto: CreateChannelDto,
@@ -40,14 +40,14 @@ export class ChannelService {
       );
     }
 
-    this.logger.log(
+    this.appLogger.log(
       `Creating channel with YouTube handle: ${createChannelDto.youtubeHandle}`,
     );
     const channelInfo = await this.youtubeService.getYtChannelInfosByHandle(
       createChannelDto.youtubeHandle,
     );
     if (channelInfo) {
-      this.logger.log(
+      this.appLogger.log(
         `Channel found: ${channelInfo.snippet.title} (ID: ${channelInfo.id})`,
       );
     }
@@ -65,7 +65,7 @@ export class ChannelService {
     });
 
     // Trigger video population after the channel is created
-    this.logger.log(
+    this.appLogger.log(
       `Populating videos for channel: ${channel.get('youtubeHandle')} (ID: ${channel.id})`,
     );
     void this._populateVideosForChannel(channel);
@@ -225,7 +225,7 @@ export class ChannelService {
     // Delete all videos associated with this channel
     const videos = channel.get('videos') || [];
     if (videos.length > 0) {
-      this.logger.log(
+      this.appLogger.log(
         `Deleting ${videos.length} videos for channel "${channel.get('name')}" (ID: ${id})`,
       );
       await this.videoModel.destroy({
@@ -235,13 +235,13 @@ export class ChannelService {
 
     // Delete the channel
     await this.channelModel.destroy({ where: { id } });
-    this.logger.log(
+    this.appLogger.log(
       `Channel "${channel.get('name')}" (ID: ${id}) deleted successfully`,
     );
   }
 
   async generateMissingVideosForAllChannels() {
-    this.logger.log('Generating missing videos for all channels...');
+    this.appLogger.log('Generating missing videos for all channels...');
     const channels = await this.channelModel.findAll({
       include: [{ model: Video }],
     });
@@ -251,12 +251,12 @@ export class ChannelService {
         await this._populateVideosForChannel(channel);
       } catch (error: unknown) {
         if (error instanceof Error) {
-          this.logger.error(
+          this.appLogger.error(
             `Failed to populate videos for channel "${channel.get('name')}": ${error.message}`,
           );
         } else {
           // Fallback for unknown error shapes
-          this.logger.error(
+          this.appLogger.error(
             `Failed to populate videos for channel "${channel.get('name')}": ${String(error)}`,
           );
         }
@@ -269,12 +269,12 @@ export class ChannelService {
       include: [{ model: Video }],
     });
 
-    this.logger.log('Updating all channels infos from Youtube...');
+    this.appLogger.log('Updating all channels infos from Youtube...');
     for (const channel of channels) {
       await this._syncChannelFromYoutube(channel);
     }
 
-    this.logger.log('Removing all deleted videos from all channels...');
+    this.appLogger.log('Removing all deleted videos from all channels...');
     for (const channel of channels) {
       await this.videoService.syncVideosFromYoutube(channel);
     }
@@ -297,16 +297,16 @@ export class ChannelService {
       const changedFields = channel.changed();
 
       if (changedFields) {
-        this.logger.log(`Updated channel ${channel.name}:`);
+        this.appLogger.log(`Updated channel ${channel.name}:`);
         for (const field of changedFields) {
-          console.log(
+          this.appLogger.log(
             `${field}: "${channel.previous(field)}" -> "${channel.get(field) as string}"`,
           );
         }
         await channel.save();
       }
     } catch (error) {
-      this.logger.error(
+      this.appLogger.error(
         `Error while fetching infos for channel ${channel.name}`,
         error,
       );
@@ -398,28 +398,33 @@ export class ChannelService {
         return true;
       });
 
-    this.logger.log(
+    this.appLogger.log(
       `Found ${newVideos.length} videos for channel ${channel.get('name')}`,
     );
-    this.logger.log(
+    this.appLogger.log(
       `Ignored ${ignoredVideosCount} videos based on ignore patterns`,
     );
 
+    let videoIndex = 0;
     for (const videoDto of videoDtos) {
+      this.appLogger.log(
+        `${channel.name} : Vidéo ${videoIndex + 1} / ${videoDtos.length} ${createProgressBar(videoIndex + 1, videoDtos.length)}`,
+      );
       try {
         await this.videoService.create(videoDto);
       } catch (error: unknown) {
         if (error instanceof Error) {
-          this.logger.error(
+          this.appLogger.error(
             `Failed to create video "${videoDto.title}": ${error.message}`,
           );
         } else {
           // Fallback for unknown error shapes
-          this.logger.error(
+          this.appLogger.error(
             `Failed to create video "${videoDto.title}": ${String(error)}`,
           );
         }
       }
+      videoIndex += 1;
     }
   }
 }

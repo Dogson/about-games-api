@@ -8,6 +8,7 @@ import {
   removeMatchesFromString,
 } from '../../helpers/string/string.helper';
 import { GameService } from '../game/game.service';
+import { AppLogger } from '../logging/app-logger.service';
 
 @Injectable()
 export class IgdbService {
@@ -24,6 +25,7 @@ export class IgdbService {
   constructor(
     @Inject(forwardRef(() => GameService))
     private readonly gameService: GameService,
+    private readonly appLogger: AppLogger,
   ) {}
 
   /**
@@ -34,7 +36,7 @@ export class IgdbService {
     ignoreSearchIn: string[] = [],
     endParsingAfter: string[] = [],
   ): Promise<IGDBGame[]> {
-    this.logger.log(`Parsing string for game titles: "${stringToParse}"`);
+    this.appLogger.log(`Parsing string for game titles: "${stringToParse}"`);
 
     const candidateNames = this.extractTitleCandidates(
       stringToParse,
@@ -76,7 +78,7 @@ export class IgdbService {
             ).total > 0;
 
           if (shouldIgnoreGame) {
-            this.logger.log(`Ignoring game "${foundGame.name}"`);
+            this.appLogger.log(`Ignoring game "${foundGame.name}"`);
             continue;
           }
 
@@ -85,11 +87,11 @@ export class IgdbService {
         }
       } catch (error) {
         if (error instanceof Error) {
-          this.logger.warn(
+          this.appLogger.warn(
             `Failed to query IGDB for "${name}": ${error.message}`,
           );
         } else {
-          this.logger.warn(
+          this.appLogger.warn(
             `Failed to query IGDB for "${name}": Unknown error`,
             error,
           );
@@ -108,7 +110,7 @@ export class IgdbService {
       );
     });
 
-    this.logger.log(
+    this.appLogger.log(
       `Total games found: ${foundGamesWithoutUnrelevant.length} : ${foundGamesWithoutUnrelevant
         .map((g) => g.name)
         .join(', ')}`,
@@ -295,10 +297,10 @@ export class IgdbService {
       this.accessToken = response.data.access_token;
       this.tokenExpiry = now + response.data.expires_in * 1000;
 
-      this.logger.log('IGDB access token fetched successfully');
+      this.appLogger.log('IGDB access token fetched successfully');
       return this.accessToken;
     } catch (error) {
-      this.logger.error('Failed to get IGDB access token', error);
+      this.appLogger.error('Failed to get IGDB access token', error);
       throw error;
     }
   }
@@ -332,15 +334,17 @@ export class IgdbService {
       return response.data as IGDBGame[];
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        this.logger.warn(
+        this.appLogger.warn(
           `Failed to query IGDB for "${name}": ${error.message}`,
         );
       } else if (error instanceof Error) {
-        this.logger.warn(
+        this.appLogger.warn(
           `Failed to query IGDB for "${name}": ${error.message}`,
         );
       } else {
-        this.logger.warn(`Failed to query IGDB for "${name}": Unknown error`);
+        this.appLogger.warn(
+          `Failed to query IGDB for "${name}": Unknown error`,
+        );
       }
       return [];
     }
@@ -371,21 +375,21 @@ export class IgdbService {
 
       const games = response.data as IGDBGame[];
       if (games.length === 0) {
-        this.logger.warn(`No IGDB game found for ID "${id}"`);
+        this.appLogger.warn(`No IGDB game found for ID "${id}"`);
         return null;
       }
       return games[0];
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        this.logger.warn(
+        this.appLogger.warn(
           `Failed to get IGDB game by ID "${id}": ${error.message}`,
         );
       } else if (error instanceof Error) {
-        this.logger.warn(
+        this.appLogger.warn(
           `Failed to get IGDB game by ID "${id}": ${error.message}`,
         );
       } else {
-        this.logger.warn(
+        this.appLogger.warn(
           `Failed to get IGDB game by ID "${id}": Unknown error`,
         );
       }

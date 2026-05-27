@@ -10,16 +10,19 @@ import { IgdbModule } from '../igdb/igdb.module';
 import { GameModule } from '../game/game.module';
 import { ChannelModule } from '../channel/channel.module';
 import { YoutubeModule } from '../youtube/youtube.module';
+import { createLoggerProvider } from '../logging/logger.provider';
+import { LoggingModule } from '../logging/logging.module';
 
 @Module({
   controllers: [VideoController],
-  providers: [VideoService],
+  providers: [VideoService, createLoggerProvider(VideoService.name)],
   imports: [
     SequelizeModule.forFeature([Game, VideosHasGames, Video, Channel]),
     IgdbModule,
     GameModule,
     YoutubeModule,
     forwardRef(() => ChannelModule),
+    LoggingModule,
   ],
   exports: [VideoService],
 })

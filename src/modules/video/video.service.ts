@@ -18,6 +18,7 @@ import { IgdbService } from '../igdb/igdb.service';
 import { GameService } from '../game/game.service';
 import { ChannelService } from '../channel/channel.service';
 import { YoutubeService } from '../youtube/youtube.service';
+import { AppLogger } from '../logging/app-logger.service';
 
 @Injectable()
 export class VideoService {
@@ -29,6 +30,7 @@ export class VideoService {
     private readonly youtubeService: YoutubeService,
     @Inject(forwardRef(() => ChannelService))
     private readonly channelService: ChannelService,
+    private readonly appLogger: AppLogger,
   ) {}
 
   private readonly logger = new Logger(VideoService.name);
@@ -111,17 +113,17 @@ export class VideoService {
         }
       }
     } catch (e) {
-      this.logger.error(
+      this.appLogger.error(
         `Failed to remove deleted videos for channel "${channel.get('name')}": ${e instanceof Error ? e.message : String(e)}`,
       );
     }
     if (destroyedVideos.length > 0) {
-      this.logger.log(
+      this.appLogger.log(
         `Removed ${destroyedVideos.length} deleted videos from channel ${channel.get('name')} : ${destroyedVideos.join(', ')} .`,
       );
     }
     if (updatedVideos.length > 0) {
-      this.logger.log(
+      this.appLogger.log(
         `Updated ${updatedVideos.length} videos for channel ${channel.get('name')} : ${updatedVideos.join(', ')} .`,
       );
     }

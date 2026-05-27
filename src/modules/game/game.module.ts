@@ -7,14 +7,17 @@ import { VideosHasGames } from '../../db/many-to-many/videos-has-games.table';
 import { Video } from '../video/entities/video.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import { IgdbModule } from '../igdb/igdb.module';
+import { createLoggerProvider } from '../logging/logger.provider';
+import { LoggingModule } from '../logging/logging.module';
 
 @Module({
   controllers: [GameController],
-  providers: [GameService],
+  providers: [GameService, createLoggerProvider(GameService.name)],
   exports: [GameService],
   imports: [
     SequelizeModule.forFeature([Game, VideosHasGames, Video, Channel]),
     forwardRef(() => IgdbModule),
+    LoggingModule,
   ],
 })
 export class GameModule {}

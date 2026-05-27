@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { IgdbModule } from './modules/igdb/igdb.module';
 import { CronModule } from './modules/cron/cron.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
+import { LoggingModule } from './modules/logging/logging.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { YoutubeModule } from './modules/youtube/youtube.module';
     AuthModule,
     IgdbModule,
     CronModule,
+    LoggingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
