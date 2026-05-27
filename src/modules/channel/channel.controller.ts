@@ -28,7 +28,12 @@ export class ChannelController {
   @UseGuards(JwtAuthGuard)
   @Post('generate')
   generateMissingVideosForAllChannels() {
-    return this.channelService.generateMissingVideosForAllChannels();
+    void this.channelService.generateMissingVideosForAllChannels();
+
+    return {
+      success: true,
+      message: 'Video generation started',
+    };
   }
 
   @Get()
