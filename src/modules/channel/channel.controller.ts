@@ -42,9 +42,9 @@ export class ChannelController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch('syncAllChannelsVideos')
+  @Patch('syncAllYoutubeChannels')
   removeRemovedFromYoutube() {
-    return this.channelService.syncAllChannelsVideosFromYoutube();
+    return this.channelService.syncAllYoutubeChannels();
   }
 
   @UseGuards(JwtAuthGuard)

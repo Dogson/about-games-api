@@ -17,7 +17,7 @@ export class CronService {
     this.logger.log(
       'Running daily cron job to generate missing videos for all channels',
     );
-    void this.channelService.syncAllChannelsVideosFromYoutube();
+    void this.channelService.syncAllYoutubeChannels();
   }
 
   @Cron(CronExpression.EVERY_DAY_AT_2AM)

@@ -15,8 +15,32 @@ export class YoutubeService {
   private readonly apiKey = process.env.YOUTUBE_API_KEY;
   private readonly apiHost = process.env.YOUTUBE_API_HOST;
 
+  async getYtChannelInfosById(channelId: string): Promise<YouTubeChannel> {
+    return this._getYtChannelInfosByIdOrHandle({
+      kind: 'id',
+      youtubeId: channelId,
+    });
+  }
+
   async getYtChannelInfosByHandle(
     channelHandle: string,
+  ): Promise<YouTubeChannel> {
+    return this._getYtChannelInfosByIdOrHandle({
+      kind: 'handle',
+      youtubeHandle: channelHandle,
+    });
+  }
+
+  private async _getYtChannelInfosByIdOrHandle(
+    params:
+      | {
+          kind: 'id';
+          youtubeId: string;
+        }
+      | {
+          kind: 'handle';
+          youtubeHandle: string;
+        },
   ): Promise<YouTubeChannel> {
     if (!this.apiKey || !this.apiHost) {
       throw new HttpException(
@@ -27,19 +51,28 @@ export class YoutubeService {
 
     const url = `${this.apiHost}channels`;
 
-    const cleanHandle = channelHandle.startsWith('@')
-      ? channelHandle.slice(1)
-      : channelHandle;
-
-    const params = {
-      part: 'snippet,statistics,contentDetails',
-      forHandle: cleanHandle,
-      key: this.apiKey,
-    };
-
     try {
+      const apiReqParams: {
+        key: string;
+        part: string;
+        forHandle?: string;
+        id?: string;
+      } = {
+        key: this.apiKey,
+        part: 'snippet,statistics,contentDetails',
+      };
+      if (params.kind === 'id') {
+        apiReqParams.id = params.youtubeId;
+      } else {
+        const cleanHandle = params.youtubeHandle.startsWith('@')
+          ? params.youtubeHandle.slice(1)
+          : params.youtubeHandle;
+
+        apiReqParams.forHandle = cleanHandle;
+      }
+
       const response = await axios.get<YouTubeChannelsListResponse>(url, {
-        params,
+        params: apiReqParams,
       });
 
       if (response.data.items.length === 0) {

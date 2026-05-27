@@ -264,15 +264,52 @@ export class ChannelService {
     }
   }
 
-  async syncAllChannelsVideosFromYoutube() {
-    this.logger.log('Removing all deleted videos from all channels...');
-
+  async syncAllYoutubeChannels() {
     const channels = await this.channelModel.findAll({
       include: [{ model: Video }],
     });
 
+    this.logger.log('Updating all channels infos from Youtube...');
+    for (const channel of channels) {
+      await this._syncChannelFromYoutube(channel);
+    }
+
+    this.logger.log('Removing all deleted videos from all channels...');
     for (const channel of channels) {
       await this.videoService.syncVideosFromYoutube(channel);
+    }
+  }
+
+  private async _syncChannelFromYoutube(channel: Channel): Promise<void> {
+    try {
+      const channelInfo = await this.youtubeService.getYtChannelInfosById(
+        channel.youtubeId,
+      );
+
+      const syncedData = {
+        name: channelInfo.snippet.title,
+        description: channelInfo.snippet.description,
+        thumbnailUrl: channelInfo.snippet.thumbnails.default.url,
+      };
+
+      channel.set(syncedData);
+
+      const changedFields = channel.changed();
+
+      if (changedFields) {
+        this.logger.log(`Updated channel ${channel.name}:`);
+        for (const field of changedFields) {
+          console.log(
+            `${field}: "${channel.previous(field)}" -> "${channel.get(field) as string}"`,
+          );
+        }
+        await channel.save();
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error while fetching infos for channel ${channel.name}`,
+        error,
+      );
     }
   }
 
