@@ -38,6 +38,7 @@ export class GameService {
     const offset = (page - 1) * limit;
     const { search, ignoreDuringSearch, igdbId, onlyValidated } =
       findAllGamesDto;
+    const { languages } = findAllGamesDto;
 
     const searchConditions: WhereOptions[] = [];
 
@@ -69,6 +70,27 @@ export class GameService {
 
     if (igdbId) {
       filterConditions.push({ igdbId });
+    }
+
+    if (languages && languages.length > 0) {
+      const languageValues = languages
+        .map((language) => language.trim().toLowerCase())
+        .filter(Boolean)
+        .map((language) => this.escapeSqlString(language))
+        .join(', ');
+
+      if (languageValues.length > 0) {
+        filterConditions.push(
+          Sequelize.literal(`EXISTS (
+          SELECT 1
+          FROM videos_has_games AS vhg
+          INNER JOIN videos AS v ON v.id = vhg.video_id
+          INNER JOIN yt_channel AS c ON c.id = v.yt_channel_id
+          WHERE vhg.game_id = Game.id
+            AND LOWER(c.language) IN (${languageValues})
+        )`),
+        );
+      }
     }
 
     // ✅ Apply verified filter only if requested
@@ -133,6 +155,10 @@ export class GameService {
 
   private escapeSearch(input: string): string {
     return `'${input.replace(/'/g, "\\'")}'`;
+  }
+
+  private escapeSqlString(input: string): string {
+    return `'${input.replace(/'/g, "''")}'`;
   }
 
   async findOne(id: number): Promise<Game> {
