@@ -33,6 +33,7 @@ export class CreateGameDto {
   @IsString()
   coverImg!: string | null;
 
+  @IsOptional()
   @IsString()
   boxartImg!: string | null;
 }
