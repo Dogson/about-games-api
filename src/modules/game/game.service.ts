@@ -140,6 +140,8 @@ export class GameService {
       include: [
         {
           model: Video,
+          where: { validated: true },
+          required: true,
           through: { attributes: [] },
           include: [{ model: Channel }],
         },
