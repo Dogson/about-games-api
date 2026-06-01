@@ -161,17 +161,38 @@ export class GameService {
     return `'${input.replace(/'/g, "''")}'`;
   }
 
-  async findOne(id: number): Promise<Game> {
-    const game = await this.gameModel.findByPk(id, {
+  async findOne(
+    id: number,
+    onlyValidatedVideos: boolean = true,
+    languages?: string[],
+  ): Promise<Game> {
+    const videoWhere: WhereOptions = {};
+    if (onlyValidatedVideos) {
+      videoWhere['validated'] = true;
+    }
+
+    const normalizedLanguages = languages
+      ?.map((lang) => lang.trim().toLowerCase())
+      .filter(Boolean);
+    const channelWhere = normalizedLanguages?.length
+      ? { language: { [Op.in]: normalizedLanguages } }
+      : undefined;
+
+    const videoIncludeConfig: any = {
+      model: Video,
+      through: { attributes: [] },
+      required: false,
+      ...(Object.keys(videoWhere).length && { where: videoWhere }),
       include: [
         {
-          model: Video,
-          where: { validated: true },
-          required: true,
-          through: { attributes: [] },
-          include: [{ model: Channel }],
+          model: Channel,
+          ...(channelWhere && { where: channelWhere, required: true }),
         },
       ],
+    };
+
+    const game = await this.gameModel.findByPk(id, {
+      include: [videoIncludeConfig],
     });
     if (!game) {
       throw new NotFoundException(`Game with id ${id} not found`);

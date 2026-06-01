@@ -16,6 +16,7 @@ import Routes from '../../routes.config';
 import { FindAllGamesDto } from './dto/find-all-games.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { IgdbSearchWithinTextDto } from './dto/igdb-search-within-text.dto';
+import { CreateAllGamesDto } from './dto/create-all-games.dto';
 
 @Controller(Routes.GAMES)
 export class GameController {
@@ -45,8 +46,9 @@ export class GameController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.gameService.findOne(+id);
+  findOne(@Param('id') id: string, @Query() query: CreateAllGamesDto) {
+    const onlyValidated = query.onlyValidatedVideos ?? true;
+    return this.gameService.findOne(+id, onlyValidated, query.languages);
   }
 
   @UseGuards(JwtAuthGuard)
