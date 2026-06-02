@@ -72,7 +72,7 @@ export class IgdbService {
             (
               await this.gameService.findAll({
                 ignoreDuringSearch: true,
-                limit: 1000,
+                limit: 100000,
                 igdbId: foundGame.id,
               })
             ).total > 0;
@@ -270,7 +270,10 @@ export class IgdbService {
       }
     }
 
-    return Array.from(expanded);
+    // === 11. Expand normalize 's possesives ===
+    const normalizePossessive = (text: string) => text.replace(/['’]s\b/gi, '');
+
+    return Array.from(expanded).map(normalizePossessive);
   }
 
   private async getAccessToken(): Promise<string> {
