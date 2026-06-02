@@ -36,9 +36,24 @@ export class GameService {
     const page = findAllGamesDto.page ?? 1;
     const limit = findAllGamesDto.limit ?? ApiConfig.GAMES_LIMIT_DEFAULT;
     const offset = (page - 1) * limit;
-    const { search, ignoreDuringSearch, igdbId, onlyValidated } =
+    const { search, ignoreDuringSearch, igdbId, onlyValidated, withVideos } =
       findAllGamesDto;
     const { languages } = findAllGamesDto;
+
+    const includeVideos = withVideos
+      ? [
+          {
+            model: Video,
+            through: { attributes: [] },
+            required: false,
+            include: [
+              {
+                model: Channel,
+              },
+            ],
+          },
+        ]
+      : undefined;
 
     const searchConditions: WhereOptions[] = [];
 
@@ -129,6 +144,7 @@ export class GameService {
     const result = await this.gameModel.findAndCountAll({
       attributes,
       where,
+      include: includeVideos,
       order: relevanceSearch
         ? [
             [Sequelize.col('relevance'), 'DESC'],
