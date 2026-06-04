@@ -245,35 +245,49 @@ export class IgdbService {
     for (const title of combined) {
       const words = title.split(/\s+/).filter(Boolean);
 
-      if (words.length <= 1) {
-        const word = words[0];
-        if (word && word[0] === word[0].toUpperCase()) {
-          expanded.add(word);
-        }
-      } else {
-        for (let start = 0; start < words.length; start++) {
-          for (let end = start + 1; end <= words.length; end++) {
-            const slice = words.slice(start, end);
-            const first = slice[0];
-            const last = slice[slice.length - 1];
+      // Normalize words but KEEP original structure for reconstruction
+      const normalizedWords = words.map((w) => ({
+        raw: w,
+        clean: w.replace(/['’]s$/i, ''),
+        isCapitalized:
+          w[0] === w[0].toUpperCase() ||
+          w.replace(/['’]s$/i, '')[0] ===
+            w.replace(/['’]s$/i, '')[0]?.toUpperCase(),
+      }));
 
-            if (
-              first &&
-              last &&
-              first[0] === first[0].toUpperCase() &&
-              last[0] === last[0].toUpperCase()
-            ) {
-              expanded.add(slice.join(' '));
+      // 1. Rebuild contiguous capitalized sequences (KEY FIX)
+      for (let i = 0; i < normalizedWords.length; i++) {
+        const buffer: string[] = [];
+
+        for (let j = i; j < normalizedWords.length; j++) {
+          const word = normalizedWords[j];
+
+          if (!word.clean) break;
+
+          if (word.isCapitalized) {
+            buffer.push(word.clean);
+            if (buffer.length >= 2) {
+              expanded.add(buffer.join(' '));
             }
+          } else {
+            break;
           }
+        }
+      }
+
+      // 2. Also keep standalone capitalized words (optional fallback)
+      for (const w of normalizedWords) {
+        const cleaned = w.clean;
+        if (cleaned && /^[A-Z]/.test(cleaned)) {
+          expanded.add(cleaned);
         }
       }
     }
 
     // === 11. Expand normalize 's possesives ===
-    const normalizePossessive = (text: string) => text.replace(/['’]s\b/gi, '');
+    // const normalizePossessive = (text: string) => text.replace(/['’]s\b/gi, '');
 
-    return Array.from(expanded).map(normalizePossessive);
+    return Array.from(expanded);
   }
 
   private async getAccessToken(): Promise<string> {
