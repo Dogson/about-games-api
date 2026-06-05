@@ -6,6 +6,7 @@ import {
   removeAllAccents,
   removeAllWhitespaces,
   removeMatchesFromString,
+  removePossessives,
 } from '../../helpers/string/string.helper';
 import { GameService } from '../game/game.service';
 import { AppLogger } from '../logging/app-logger.service';
@@ -164,16 +165,18 @@ export class IgdbService {
       cleanedText = removeMatchesFromString(cleanedText, pattern);
     }
 
-    // === 3.5 Strip dots from cleanedText ===
-    cleanedText = cleanedText.replace(/\./g, '');
+    // === 3.5 Strip dots and possessives from cleanedText ===
+    cleanedText = removePossessives(cleanedText.replace(/\./g, ''));
 
-    // === 4. Extract quoted titles ===
+    // === 4. Segment text by hard boundaries (comma + line breaks) ===
+    const segments = cleanedText
+      .split(/(?:\r?\n|,)+/g)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // === 5. Extract quoted + compound titles per segment ===
     const quotedTitleRegex = /["“'”]([^"“'”\n]{2,})["”']/g;
-    while ((match = quotedTitleRegex.exec(cleanedText)) !== null) {
-      multiWordCandidates.add(match[1].trim());
-    }
 
-    // === 5. Extract compound capitalized/numeric patterns ===
     const titleRegex = new RegExp(
       String.raw`\b(` +
         String.raw`(?:\d+[:]?|[\p{Lu}][\p{L}\p{N}'’:-]*|[\p{Lu}]{2,})` +
@@ -187,18 +190,39 @@ export class IgdbService {
       'gu',
     );
 
-    while ((match = titleRegex.exec(cleanedText)) !== null) {
-      const candidate = match[1].trim();
-      const words = candidate.split(/\s+/);
-      const lastWord = words[words.length - 1];
+    for (const segment of segments) {
+      let match: RegExpExecArray | null;
 
-      // Ignore si le dernier mot est tout en minuscules (au moins 3 lettres) et non dans la whitelist
-      const allowedLowercaseWords = ['of', 'the', 'in', 'and', 'to'];
-      if (
-        !/^[a-z]{3,}$/.test(lastWord) ||
-        allowedLowercaseWords.includes(lastWord)
-      ) {
-        multiWordCandidates.add(candidate);
+      // --- quoted titles ---
+      while ((match = quotedTitleRegex.exec(segment)) !== null) {
+        multiWordCandidates.add(match[1].trim());
+      }
+
+      // reset regex state for each segment
+      titleRegex.lastIndex = 0;
+
+      // --- compound capitalized patterns ---
+      while ((match = titleRegex.exec(segment)) !== null) {
+        const candidate = match[1].trim();
+        const words = candidate.split(/\s+/);
+        const lastWord = words[words.length - 1];
+
+        const allowedLowercaseWords = [
+          'of',
+          'the',
+          'in',
+          'and',
+          'to',
+          'a',
+          'with',
+        ];
+
+        if (
+          !/^[a-z]{3,}$/.test(lastWord) ||
+          allowedLowercaseWords.includes(lastWord)
+        ) {
+          multiWordCandidates.add(candidate);
+        }
       }
     }
 
@@ -264,13 +288,9 @@ export class IgdbService {
 
           if (!word.clean) break;
 
-          if (word.isCapitalized) {
-            buffer.push(word.clean);
-            if (buffer.length >= 2) {
-              expanded.add(buffer.join(' '));
-            }
-          } else {
-            break;
+          buffer.push(word.clean);
+          if (buffer.length >= 2) {
+            expanded.add(buffer.join(' '));
           }
         }
       }
@@ -286,7 +306,6 @@ export class IgdbService {
 
     // === 11. Expand normalize 's possesives ===
     // const normalizePossessive = (text: string) => text.replace(/['’]s\b/gi, '');
-
     return Array.from(expanded);
   }
 
@@ -425,15 +444,18 @@ export class IgdbService {
     const matchingGames: IGDBGame[] = [];
     for (const game of gameList) {
       if (
-        removeAllAccents(removeAllWhitespaces(normalizeString(game.name))) ===
-        normalizedTarget
+        removeAllAccents(
+          removeAllWhitespaces(normalizeString(removePossessives(game.name))),
+        ) === normalizedTarget
       ) {
         matchingGames.push(game);
       } else if (
         game.alternative_names?.some(
           (alt) =>
             removeAllAccents(
-              removeAllWhitespaces(normalizeString(alt.name)),
+              removeAllWhitespaces(
+                normalizeString(removePossessives(alt.name)),
+              ),
             ) === normalizedTarget,
         )
       ) {

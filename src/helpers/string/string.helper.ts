@@ -21,3 +21,11 @@ export function removeAllWhitespaces(str: string): string {
 export function removeAllAccents(str: string): string {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
+
+export function removePossessives(input: string): string {
+  return (
+    input
+      // handles "’s" and "'s" (smart + straight apostrophes)
+      .replace(/['’]s\b/gi, '')
+  );
+}
