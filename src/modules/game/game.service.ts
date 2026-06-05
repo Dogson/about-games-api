@@ -18,6 +18,8 @@ import { instanceToPlain } from 'class-transformer';
 import { IgdbService } from '../igdb/igdb.service';
 import { AppLogger } from '../logging/app-logger.service';
 import { VideosHasGames } from 'src/db/many-to-many/videos-has-games.table';
+import { createProgressBar } from 'src/helpers/ascii/progressBar';
+import axios from 'axios';
 
 @Injectable()
 export class GameService {
@@ -216,12 +218,7 @@ export class GameService {
             attributes: [],
           },
           order: [
-            [
-              { model: Video, as: undefined },
-              VideosHasGames,
-              'createdAt',
-              'DESC',
-            ],
+            [{ model: Video, as: undefined }, VideosHasGames, 'rank', 'ASC'],
           ],
         },
       ],
@@ -295,11 +292,25 @@ export class GameService {
 
   async syncAllGamesWithIgdb() {
     const games = await this.gameModel.findAll();
+    const total = games.length;
 
-    for (const game of games) {
-      const igdbGame = await this.igdbService.getIGDBGameById(
-        game.get('igdbId'),
-      );
+    for (let i = 0; i < total; i++) {
+      const game = games[i];
+      const igdbId = game.get('igdbId');
+
+      let igdbGame: IGDBGame | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          igdbGame = await this.igdbService.getIGDBGameById(igdbId);
+          break;
+        } catch (error: unknown) {
+          if (axios.isAxiosError(error) && error.response?.status === 429) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            continue;
+          }
+          throw error;
+        }
+      }
 
       if (!igdbGame) {
         console.warn(
@@ -309,33 +320,44 @@ export class GameService {
         const updateDTOFromIgdb = this.mapIgdbGamesToCreateGamesDTO(igdbGame);
         const gameData = game.get({ plain: true }) as UpdateGameDto;
 
-        const keysToUpdate = Object.keys(updateDTOFromIgdb).filter((key) => {
-          if (!updateDTOFromIgdb[key] && !gameData[key]) {
-            return false;
-          }
-          if (Array.isArray(updateDTOFromIgdb[key])) {
-            return (
-              JSON.stringify(updateDTOFromIgdb[key]) !==
-              JSON.stringify(gameData[key])
-            );
-          }
-          if (key === 'releaseDate') {
-            return (
-              new Date(updateDTOFromIgdb[key] as Date).getTime() !==
-              new Date(gameData[key] as Date).getTime()
-            );
-          }
-          return updateDTOFromIgdb[key] !== gameData[key];
-        });
+        const keysToUpdate = Object.keys(updateDTOFromIgdb)
+          .filter((key) => key !== 'ignoreDuringSearch')
+          .filter((key) => {
+            if (!updateDTOFromIgdb[key] && !gameData[key]) {
+              return false;
+            }
+            if (Array.isArray(updateDTOFromIgdb[key])) {
+              return (
+                JSON.stringify(updateDTOFromIgdb[key]) !==
+                JSON.stringify(gameData[key])
+              );
+            }
+            if (key === 'releaseDate') {
+              return (
+                new Date(updateDTOFromIgdb[key] as Date).getTime() !==
+                new Date(gameData[key] as Date).getTime()
+              );
+            }
+            return updateDTOFromIgdb[key] !== gameData[key];
+          });
 
         if (keysToUpdate.length > 0) {
           await this.update(game.get('id'), updateDTOFromIgdb);
           this.appLogger.log(
             `Updated game ${game.get('title')} with new IGDB data : ${keysToUpdate.map((key) => `${key}=${updateDTOFromIgdb[key]}`).join(', ')}.`,
           );
+        } else {
+          this.appLogger.log(
+            `Game ${game.get('title')} already up-to-date, nothing to update.`,
+          );
         }
       }
+
+      const progress = createProgressBar(i + 1, total);
+      process.stdout.write(`\r${progress} (${i + 1}/${total})`);
     }
+
+    process.stdout.write('\n');
   }
 
   async igdbSearch(search: string): Promise<IGDBGame[]> {

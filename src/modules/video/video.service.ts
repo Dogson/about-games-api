@@ -19,6 +19,7 @@ import { GameService } from '../game/game.service';
 import { ChannelService } from '../channel/channel.service';
 import { YoutubeService } from '../youtube/youtube.service';
 import { AppLogger } from '../logging/app-logger.service';
+import { VideosHasGames } from '../../db/many-to-many/videos-has-games.table';
 
 @Injectable()
 export class VideoService {
@@ -69,10 +70,14 @@ export class VideoService {
 
     const video = await this.videoModel.create({ ...createVideoDto });
     const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
-    await video.$set(
-      'games',
-      gamesFoundOrCreated.map((game) => game.id),
+    const videosHasGamesRecords = gamesFoundOrCreated.map(
+      (game, index): { videoId: number; gameId: number; rank: number } => ({
+        videoId: video.id as number,
+        gameId: game.id,
+        rank: index,
+      }),
     );
+    await VideosHasGames.bulkCreate(videosHasGamesRecords);
 
     return video;
   }
@@ -147,6 +152,7 @@ export class VideoService {
           model: Channel,
         },
       ],
+      order: [[{ model: Game, as: 'games' }, VideosHasGames, 'rank', 'ASC']],
     });
   }
 
@@ -161,6 +167,7 @@ export class VideoService {
           model: Channel,
         },
       ],
+      order: [[{ model: Game, as: 'games' }, VideosHasGames, 'rank', 'ASC']],
     });
 
     if (!video) {
@@ -209,10 +216,15 @@ export class VideoService {
     if (games) {
       const gamesFoundOrCreated =
         await this.gameService.findOrCreateGames(games);
-      await existingVideo.$set(
-        'games',
-        gamesFoundOrCreated.map((game) => game.id),
+      await VideosHasGames.destroy({ where: { videoId: id } });
+      const videosHasGamesRecords = gamesFoundOrCreated.map(
+        (game, index): { videoId: number; gameId: number; rank: number } => ({
+          videoId: id,
+          gameId: game.id,
+          rank: index,
+        }),
       );
+      await VideosHasGames.bulkCreate(videosHasGamesRecords);
     }
 
     return await this.findOne(id); // return with relations

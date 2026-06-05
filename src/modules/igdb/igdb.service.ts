@@ -45,12 +45,24 @@ export class IgdbService {
       endParsingAfter,
     );
 
+    // --- preserve first occurrence index of each normalized candidate
+    const candidateIndex = new Map<string, number>();
+
+    candidateNames.forEach((name, idx) => {
+      const normalized = removeAllAccents(
+        removeAllWhitespaces(normalizeString(name)),
+      );
+
+      if (!candidateIndex.has(normalized)) {
+        candidateIndex.set(normalized, idx);
+      }
+    });
+
     const uniqueNames = [...new Set(candidateNames)];
 
-    const allFoundGames: IGDBGame[] = [];
+    const allFoundGames: { game: IGDBGame; index: number }[] = [];
     const usedNames = new Set<string>();
 
-    // Trier par longueur décroissante
     const sortedNames = [...uniqueNames].sort((a, b) => b.length - a.length);
 
     for (const name of sortedNames) {
@@ -58,14 +70,25 @@ export class IgdbService {
         removeAllWhitespaces(normalizeString(name)),
       );
 
-      // Ignorer si ce nom est déjà couvert par un nom plus long déjà utilisé
       const isSubOfUsed = Array.from(usedNames).some((used) =>
         used.includes(normalized),
       );
       if (isSubOfUsed) continue;
 
       try {
-        const games = await this.queryIGDBByName(name);
+        let games: IGDBGame[] = [];
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            games = await this.queryIGDBByName(name);
+            break;
+          } catch (error: unknown) {
+            if (axios.isAxiosError(error) && error.response?.status === 429) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              continue;
+            }
+            throw error;
+          }
+        }
         const foundGame = this._findGameInList(name, games);
 
         if (foundGame) {
@@ -84,7 +107,11 @@ export class IgdbService {
           }
 
           usedNames.add(normalized);
-          allFoundGames.push(foundGame);
+
+          allFoundGames.push({
+            game: foundGame,
+            index: candidateIndex.get(normalized) ?? Number.MAX_SAFE_INTEGER,
+          });
         }
       } catch (error) {
         if (error instanceof Error) {
@@ -101,21 +128,27 @@ export class IgdbService {
     }
 
     // Filter out games that are substrings of other games
-    const foundGamesWithoutUnrelevant = allFoundGames.filter((game) => {
+    const filtered = allFoundGames.filter(({ game }) => {
       const lowerStr = game.name.toLowerCase();
-      // keep the string only if no other string contains it (and it's not the same string)
+
       return !allFoundGames.some(
-        (otherGame) =>
-          otherGame.name.toLowerCase() !== lowerStr &&
-          otherGame.name.toLowerCase().includes(lowerStr),
+        ({ game: other }) =>
+          other.name.toLowerCase() !== lowerStr &&
+          other.name.toLowerCase().includes(lowerStr),
       );
     });
+
+    // Restore original candidate order
+    const foundGamesWithoutUnrelevant = filtered
+      .sort((a, b) => a.index - b.index)
+      .map((x) => x.game);
 
     this.appLogger.log(
       `Total games found: ${foundGamesWithoutUnrelevant.length} : ${foundGamesWithoutUnrelevant
         .map((g) => g.name)
         .join(', ')}`,
     );
+
     return foundGamesWithoutUnrelevant;
   }
 
@@ -242,8 +275,25 @@ export class IgdbService {
       }
     }
 
-    // === 8. Combine sets ===
-    const combined = new Set([...multiWordCandidates, ...singleWordCandidates]);
+    // === 8. Combine sets, preserving order of first appearance in cleanedText ===
+    const allUnique = new Map<string, number>();
+
+    for (const title of multiWordCandidates) {
+      const pos = cleanedText.indexOf(title);
+      allUnique.set(title, pos === -1 ? Infinity : pos);
+    }
+
+    for (const word of singleWordCandidates) {
+      if (!allUnique.has(word)) {
+        const pos = cleanedText.indexOf(word);
+        allUnique.set(word, pos === -1 ? Infinity : pos);
+      }
+    }
+
+    const combined = new Set<string>();
+    Array.from(allUnique.entries())
+      .sort(([, a], [, b]) => a - b)
+      .forEach(([text]) => combined.add(text));
 
     // === 9. Split compound titles like "A and B" ===
     const connectorWords = ['and', 'vs', 'or', '&', 'et', 'ou', "it's", "It's"];
@@ -369,6 +419,9 @@ export class IgdbService {
       );
       return response.data as IGDBGame[];
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
+        throw error;
+      }
       if (axios.isAxiosError(error)) {
         this.appLogger.warn(
           `Failed to query IGDB for "${name}": ${error.message}`,
@@ -416,6 +469,9 @@ export class IgdbService {
       }
       return games[0];
     } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 429) {
+        throw error;
+      }
       if (axios.isAxiosError(error)) {
         this.appLogger.warn(
           `Failed to get IGDB game by ID "${id}": ${error.message}`,

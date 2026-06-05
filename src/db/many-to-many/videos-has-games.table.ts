@@ -1,4 +1,10 @@
-import { Table, Model, Column, ForeignKey } from 'sequelize-typescript';
+import {
+  Table,
+  Model,
+  Column,
+  ForeignKey,
+  DataType,
+} from 'sequelize-typescript';
 import { Video } from '../../modules/video/entities/video.entity';
 import { Game } from '../../modules/game/entities/game.entity';
 
@@ -15,4 +21,7 @@ export class VideosHasGames extends Model {
   @ForeignKey(() => Game)
   @Column({ field: 'game_id' })
   gameId!: number;
+
+  @Column({ type: DataType.INTEGER, defaultValue: 0 })
+  rank!: number;
 }
