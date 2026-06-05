@@ -17,6 +17,7 @@ import type { IGDBGame } from '../igdb/dto/igdb-get-game.dto';
 import { instanceToPlain } from 'class-transformer';
 import { IgdbService } from '../igdb/igdb.service';
 import { AppLogger } from '../logging/app-logger.service';
+import { VideosHasGames } from 'src/db/many-to-many/videos-has-games.table';
 
 @Injectable()
 export class GameService {
@@ -208,7 +209,22 @@ export class GameService {
     };
 
     const game = await this.gameModel.findByPk(id, {
-      include: [videoIncludeConfig],
+      include: [
+        {
+          ...videoIncludeConfig,
+          through: {
+            attributes: [],
+          },
+          order: [
+            [
+              { model: Video, as: undefined },
+              VideosHasGames,
+              'createdAt',
+              'DESC',
+            ],
+          ],
+        },
+      ],
     });
     if (!game) {
       throw new NotFoundException(`Game with id ${id} not found`);

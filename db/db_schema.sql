@@ -107,9 +107,11 @@ DROP TABLE IF EXISTS `about_games_db`.`videos_has_games` ;
 CREATE TABLE IF NOT EXISTS `about_games_db`.`videos_has_games` (
                                                                    `video_id` INT NOT NULL,
                                                                    `game_id` INT NOT NULL,
+                                                                   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                                                    PRIMARY KEY (`video_id`, `game_id`),
     INDEX `fk_videos_has_games_games1_idx` (`game_id` ASC) VISIBLE,
     INDEX `fk_videos_has_games_videos1_idx` (`video_id` ASC) VISIBLE,
+    INDEX `fk_videos_has_games_created_at_idx` (`created_at` ASC) VISIBLE,
     CONSTRAINT `fk_videos_has_games_videos1`
     FOREIGN KEY (`video_id`)
     REFERENCES `about_games_db`.`videos` (`id`)
@@ -119,9 +121,9 @@ CREATE TABLE IF NOT EXISTS `about_games_db`.`videos_has_games` (
     FOREIGN KEY (`game_id`)
     REFERENCES `about_games_db`.`games` (`id`)
     ON DELETE CASCADE
-    ON UPDATE NO ACTION)
-    ENGINE = InnoDB;
-
+    ON UPDATE NO ACTION
+)
+ENGINE = InnoDB;
 
 -- -----------------------------------------------------
 -- Table `about_games_db`.`users`
