@@ -270,8 +270,12 @@ export class GameService {
   mapIgdbGamesToCreateGamesDTO(igdbGame: IGDBGame): CreateGameDto {
     const firstReleaseDate =
       igdbGame.release_dates && igdbGame.release_dates.length > 0
-        ? Math.min(...(igdbGame.release_dates || []).map((date) => date.date))
-        : undefined;
+        ? Math.min(
+            ...(igdbGame.release_dates || [])
+              .filter((date) => date.date)
+              .map((date) => date.date),
+          )
+        : null;
 
     return {
       title: igdbGame.name,
