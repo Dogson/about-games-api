@@ -264,6 +264,70 @@ export class ChannelService {
     }
   }
 
+  async generateGamesForChannel(channelId: number): Promise<{
+    success: boolean;
+    message: string;
+    updated: number;
+  }> {
+    const channel = await this.channelModel.findByPk(channelId);
+
+    if (!channel) {
+      throw new NotFoundException(`Channel with id ${channelId} not found`);
+    }
+
+    const unsearchedCount = await this.videoModel.count({
+      where: { ytChannelId: channelId, hasSearchedGames: false },
+    });
+
+    if (unsearchedCount > 0) {
+      void this._processGameGeneration(channelId);
+    }
+
+    return {
+      success: true,
+      message:
+        unsearchedCount > 0
+          ? 'Game generation started'
+          : 'No unsearched videos found for this channel',
+      updated: unsearchedCount,
+    };
+  }
+
+  private async _processGameGeneration(channelId: number): Promise<void> {
+    const channel = await this.channelModel.findByPk(channelId);
+    if (!channel) return;
+
+    const videos = await this.videoModel.findAll({
+      where: { ytChannelId: channelId, hasSearchedGames: false },
+    });
+
+    this.appLogger.log(
+      `Generating games for ${videos.length} unsearched videos in channel "${channel.get('name')}"`,
+    );
+
+    let updatedCount = 0;
+    for (const video of videos) {
+      try {
+        await this.videoService.regenerateGamesForVideo(video);
+        updatedCount++;
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          this.appLogger.error(
+            `Failed to generate games for video "${video.get('title')}": ${error.message}`,
+          );
+        } else {
+          this.appLogger.error(
+            `Failed to generate games for video "${video.get('title')}": ${String(error)}`,
+          );
+        }
+      }
+    }
+
+    this.appLogger.log(
+      `Successfully generated games for ${updatedCount}/${videos.length} videos in channel "${channel.get('name')}"`,
+    );
+  }
+
   async syncAllYoutubeChannels() {
     const channels = await this.channelModel.findAll({
       include: [{ model: Video }],

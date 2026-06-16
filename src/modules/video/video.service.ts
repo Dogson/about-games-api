@@ -68,7 +68,10 @@ export class VideoService {
       this.gameService.mapIgdbGamesToCreateGamesDTO(igdbGame),
     );
 
-    const video = await this.videoModel.create({ ...createVideoDto });
+    const video = await this.videoModel.create({
+      ...createVideoDto,
+      hasSearchedGames: false,
+    });
     const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
     const videosHasGamesRecords = gamesFoundOrCreated.map(
       (game, index): { videoId: number; gameId: number; rank: number } => ({
@@ -78,6 +81,11 @@ export class VideoService {
       }),
     );
     await VideosHasGames.bulkCreate(videosHasGamesRecords);
+    await video.update({
+      hasSearchedGames: true,
+      gamesCount: gamesFoundOrCreated.length,
+      gamesFoundCount: gamesFoundOrCreated.length,
+    });
 
     return video;
   }
@@ -139,6 +147,10 @@ export class VideoService {
 
     if (findAllVideosDto?.validated !== undefined) {
       where.validated = findAllVideosDto.validated;
+    }
+
+    if (findAllVideosDto?.hasSearchedGames !== undefined) {
+      where.hasSearchedGames = findAllVideosDto.hasSearchedGames;
     }
 
     return await this.videoModel.findAll({
@@ -236,5 +248,39 @@ export class VideoService {
     if (deletedRows === 0) {
       throw new NotFoundException(`Video with id ${id} not found`);
     }
+  }
+
+  async regenerateGamesForVideo(video: Video): Promise<void> {
+    const channel = await this.channelService.findOne(video.ytChannelId);
+    const parsingAttribute = channel.get('parsingAttribute');
+
+    const igdbGames = await this.igdbService.extractMentionedGames(
+      (video.get(parsingAttribute) as string) || video.title,
+      channel.get('ignoreSearchIn'),
+      channel.get('endParsingAfter'),
+    );
+
+    const games = igdbGames.map((igdbGame) =>
+      this.gameService.mapIgdbGamesToCreateGamesDTO(igdbGame),
+    );
+
+    const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
+
+    await VideosHasGames.destroy({ where: { videoId: video.id } });
+
+    const videosHasGamesRecords = gamesFoundOrCreated.map(
+      (game, index): { videoId: number; gameId: number; rank: number } => ({
+        videoId: video.id as number,
+        gameId: game.id,
+        rank: index,
+      }),
+    );
+    await VideosHasGames.bulkCreate(videosHasGamesRecords);
+
+    await video.update({
+      hasSearchedGames: true,
+      gamesCount: gamesFoundOrCreated.length,
+      gamesFoundCount: gamesFoundOrCreated.length,
+    });
   }
 }

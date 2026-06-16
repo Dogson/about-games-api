@@ -37,4 +37,8 @@ export class CreateVideoDto {
   @IsOptional()
   @IsBoolean()
   ignored?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasSearchedGames?: boolean;
 }

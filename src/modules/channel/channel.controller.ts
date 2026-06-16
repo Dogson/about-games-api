@@ -36,6 +36,12 @@ export class ChannelController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/generateGames')
+  async generateGamesForChannel(@Param('id') id: string) {
+    return await this.channelService.generateGamesForChannel(+id);
+  }
+
   @Get()
   findAll() {
     return this.channelService.findAll();

@@ -61,6 +61,14 @@ export class Video extends Model {
   @Column({ type: DataType.INTEGER, field: 'games_count' })
   declare gamesCount?: number;
 
+  @AllowNull(false)
+  @Column({
+    type: DataType.BOOLEAN,
+    field: 'has_searched_games',
+    defaultValue: false,
+  })
+  declare hasSearchedGames: boolean;
+
   @BelongsTo(() => Channel)
   ytChannel!: Channel;
 
