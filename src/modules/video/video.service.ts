@@ -173,6 +173,44 @@ export class VideoService {
     }
   }
 
+  async purgeShortsFromChannel(channel: Channel): Promise<void> {
+    const videos: Video[] = channel.get('videos') || [];
+    const shortsToRemove: string[] = [];
+    const concurrency = 5;
+    let index = 0;
+
+    const worker = async (): Promise<void> => {
+      while (index < videos.length) {
+        const video = videos[index];
+        index++;
+        try {
+          if (
+            await this.youtubeService.isYoutubeShort(video.get('youtubeId'))
+          ) {
+            shortsToRemove.push(video.get('title'));
+            await video.destroy();
+          }
+        } catch (error) {
+          this.appLogger.error(
+            `Failed to check video "${video.get('title')}" for channel "${channel.get('name')}": ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, videos.length) }, worker),
+    );
+
+    if (shortsToRemove.length > 0) {
+      this.appLogger.log(
+        `Removed ${shortsToRemove.length} Shorts videos from channel ${channel.get('name')} : ${shortsToRemove.join(', ')} .`,
+      );
+    }
+  }
+
   async findAll(findAllVideosDto?: FindAllVideosDto): Promise<Video[]> {
     const where: WhereOptions<Video> = {};
 

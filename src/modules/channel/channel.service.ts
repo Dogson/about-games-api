@@ -331,6 +331,11 @@ export class ChannelService {
       await this.videoService.syncVideosFromYoutube(channel);
     }
 
+    this.appLogger.log('Purging all Shorts videos from all channels...');
+    for (const channel of channels) {
+      await this.videoService.purgeShortsFromChannel(channel);
+    }
+
     this.appLogger.log('Generating games for unsearched videos...');
     for (const channel of channels) {
       const unsearchedCount = await this.videoModel.count({
@@ -427,6 +432,7 @@ export class ChannelService {
         youtubeId: video.videoId,
         releaseDate: video.publishedAt,
         validated: false,
+        ignored: false,
         thumbnailUrl: video.thumbnailUrl,
         gamesFoundCount: 0,
         gamesCount: 0,
@@ -460,11 +466,24 @@ export class ChannelService {
         return true;
       });
 
+    let shortsCount = 0;
+    await Promise.all(
+      videoDtos.map(async (video) => {
+        if (await this.youtubeService.isYoutubeShort(video.youtubeId)) {
+          video.ignored = true;
+          shortsCount++;
+        }
+      }),
+    );
+
     this.appLogger.log(
       `Found ${newVideos.length} videos for channel ${channel.get('name')}`,
     );
     this.appLogger.log(
       `Ignored ${ignoredVideosCount} videos based on ignore patterns`,
+    );
+    this.appLogger.log(
+      `Detected ${shortsCount} Shorts videos marked as ignored`,
     );
 
     let videoIndex = 0;
