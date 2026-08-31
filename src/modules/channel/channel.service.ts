@@ -342,6 +342,16 @@ export class ChannelService {
     for (const channel of channels) {
       await this.videoService.syncVideosFromYoutube(channel);
     }
+
+    this.appLogger.log('Generating games for unsearched videos...');
+    for (const channel of channels) {
+      const unsearchedCount = await this.videoModel.count({
+        where: { ytChannelId: channel.id, hasSearchedGames: false },
+      });
+      if (unsearchedCount > 0) {
+        await this._processGameGeneration(channel.id);
+      }
+    }
   }
 
   private async _syncChannelFromYoutube(channel: Channel): Promise<void> {
