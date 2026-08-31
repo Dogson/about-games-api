@@ -1,6 +1,9 @@
 require('dotenv').config();
 const fs = require('fs');
+const path = require('path');
 const mysql = require('mysql2/promise');
+
+const SQL_DIR = path.join(__dirname, '..', 'sql');
 
 async function runSqlFile(connection, filePath) {
   const sql = fs.readFileSync(filePath, 'utf8');
@@ -40,13 +43,13 @@ async function main() {
   await connection.changeUser({ database: DB_DATABASE_NAME });
 
   console.info('Running schema SQL...');
-  await runSqlFile(connection, './db/db_schema.sql');
+  await runSqlFile(connection, path.join(SQL_DIR, 'db_schema.sql'));
 
   console.info('Running SQL referential actions...');
-  await runSqlFile(connection, './db/db_referential_actions.sql');
+  await runSqlFile(connection, path.join(SQL_DIR, 'db_referential_actions.sql'));
 
   console.info('Running populate SQL...');
-  await runSqlFile(connection, './db/db_populate.sql');
+  await runSqlFile(connection, path.join(SQL_DIR, 'db_populate.sql'));
 
   console.info('Database setup complete.');
 
