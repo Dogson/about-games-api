@@ -1,5 +1,5 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import axios from 'axios';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import axios, { type AxiosResponse } from 'axios';
 import type {
   YouTubeApiErrorResponse,
   YouTubeChannel,
@@ -14,6 +14,7 @@ import {
 export class YoutubeService {
   private readonly apiKey = process.env.YOUTUBE_API_KEY;
   private readonly apiHost = process.env.YOUTUBE_API_HOST;
+  private readonly logger = new Logger(YoutubeService.name);
 
   async getYtChannelInfosById(channelId: string): Promise<YouTubeChannel> {
     return this._getYtChannelInfosByIdOrHandle({
@@ -167,6 +168,44 @@ export class YoutubeService {
         'Failed to fetch videos from channel',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  async isYoutubeShort(videoId: string): Promise<boolean> {
+    const url = `https://www.youtube.com/shorts/${videoId}`;
+
+    try {
+      let currentUrl: string | undefined = url;
+      for (let i = 0; i < 5 && currentUrl; i++) {
+        const response: AxiosResponse = await axios.get(currentUrl, {
+          maxRedirects: 0,
+          validateStatus: (status) => status >= 200 && status < 400,
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          },
+        });
+
+        if (response.status < 300) {
+          const finalPath = new URL(response.config.url ?? currentUrl).pathname;
+          return finalPath.startsWith('/shorts/');
+        }
+
+        const location = response.headers.location as string | undefined;
+        if (!location) {
+          return false;
+        }
+        currentUrl = new URL(location, currentUrl).toString();
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error(
+        `Failed to check if video ${videoId} is a Short: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return false;
     }
   }
 }

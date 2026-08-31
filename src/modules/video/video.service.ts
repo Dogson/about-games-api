@@ -20,6 +20,8 @@ import { ChannelService } from '../channel/channel.service';
 import { YoutubeService } from '../youtube/youtube.service';
 import { AppLogger } from '../logging/app-logger.service';
 import { VideosHasGames } from '../../db/many-to-many/videos-has-games.table';
+import { DeepseekService } from '../ai/deepseek.service';
+import { DEFAULT_GAME_CANDIDATE_AI_PROMPT } from '../ai/game-candidate.prompt';
 
 @Injectable()
 export class VideoService {
@@ -31,6 +33,7 @@ export class VideoService {
     private readonly youtubeService: YoutubeService,
     @Inject(forwardRef(() => ChannelService))
     private readonly channelService: ChannelService,
+    private readonly deepseekService: DeepseekService,
     private readonly appLogger: AppLogger,
   ) {}
 
@@ -56,23 +59,52 @@ export class VideoService {
       );
     }
 
-    const parsingAttribute = channel.get('parsingAttribute');
+    const video = await this.videoModel.create({
+      ...createVideoDto,
+      hasSearchedGames: false,
+    });
 
-    const igdbGames = await this.igdbService.extractMentionedGames(
-      (createVideoDto[parsingAttribute] as string) || createVideoDto.title,
-      channel.get('ignoreSearchIn'),
-      channel.get('endParsingAfter'),
+    try {
+      await this._searchAndLinkGames(
+        video,
+        channel,
+        createVideoDto.title,
+        createVideoDto.description,
+      );
+    } catch (error) {
+      this.appLogger.error(
+        `Failed to extract games for video "${createVideoDto.title}": ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    return video;
+  }
+
+  private async _searchAndLinkGames(
+    video: Video,
+    channel: Channel,
+    title: string,
+    description: string,
+  ): Promise<void> {
+    const prompt =
+      channel.get('gameCandidateAIPrompt') || DEFAULT_GAME_CANDIDATE_AI_PROMPT;
+
+    const gameNames = await this.deepseekService.extractMainGameNames(
+      prompt,
+      title,
+      description,
     );
+
+    const igdbGames = await this.igdbService.findGamesByNames(gameNames);
 
     const games = igdbGames.map((igdbGame) =>
       this.gameService.mapIgdbGamesToCreateGamesDTO(igdbGame),
     );
 
-    const video = await this.videoModel.create({
-      ...createVideoDto,
-      hasSearchedGames: false,
-    });
     const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
+
+    await VideosHasGames.destroy({ where: { videoId: video.id } });
+
     const videosHasGamesRecords = gamesFoundOrCreated.map(
       (game, index): { videoId: number; gameId: number; rank: number } => ({
         videoId: video.id as number,
@@ -81,13 +113,12 @@ export class VideoService {
       }),
     );
     await VideosHasGames.bulkCreate(videosHasGamesRecords);
+
     await video.update({
       hasSearchedGames: true,
       gamesCount: gamesFoundOrCreated.length,
       gamesFoundCount: gamesFoundOrCreated.length,
     });
-
-    return video;
   }
 
   async syncVideosFromYoutube(channel: Channel) {
@@ -138,6 +169,44 @@ export class VideoService {
     if (updatedVideos.length > 0) {
       this.appLogger.log(
         `Updated ${updatedVideos.length} videos for channel ${channel.get('name')} : ${updatedVideos.join(', ')} .`,
+      );
+    }
+  }
+
+  async purgeShortsFromChannel(channel: Channel): Promise<void> {
+    const videos: Video[] = channel.get('videos') || [];
+    const shortsToRemove: string[] = [];
+    const concurrency = 5;
+    let index = 0;
+
+    const worker = async (): Promise<void> => {
+      while (index < videos.length) {
+        const video = videos[index];
+        index++;
+        try {
+          if (
+            await this.youtubeService.isYoutubeShort(video.get('youtubeId'))
+          ) {
+            shortsToRemove.push(video.get('title'));
+            await video.destroy();
+          }
+        } catch (error) {
+          this.appLogger.error(
+            `Failed to check video "${video.get('title')}" for channel "${channel.get('name')}": ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, videos.length) }, worker),
+    );
+
+    if (shortsToRemove.length > 0) {
+      this.appLogger.log(
+        `Removed ${shortsToRemove.length} Shorts videos from channel ${channel.get('name')} : ${shortsToRemove.join(', ')} .`,
       );
     }
   }
@@ -252,35 +321,12 @@ export class VideoService {
 
   async regenerateGamesForVideo(video: Video): Promise<void> {
     const channel = await this.channelService.findOne(video.ytChannelId);
-    const parsingAttribute = channel.get('parsingAttribute');
 
-    const igdbGames = await this.igdbService.extractMentionedGames(
-      (video.get(parsingAttribute) as string) || video.title,
-      channel.get('ignoreSearchIn'),
-      channel.get('endParsingAfter'),
+    await this._searchAndLinkGames(
+      video,
+      channel,
+      video.title,
+      video.description,
     );
-
-    const games = igdbGames.map((igdbGame) =>
-      this.gameService.mapIgdbGamesToCreateGamesDTO(igdbGame),
-    );
-
-    const gamesFoundOrCreated = await this.gameService.findOrCreateGames(games);
-
-    await VideosHasGames.destroy({ where: { videoId: video.id } });
-
-    const videosHasGamesRecords = gamesFoundOrCreated.map(
-      (game, index): { videoId: number; gameId: number; rank: number } => ({
-        videoId: video.id as number,
-        gameId: game.id,
-        rank: index,
-      }),
-    );
-    await VideosHasGames.bulkCreate(videosHasGamesRecords);
-
-    await video.update({
-      hasSearchedGames: true,
-      gamesCount: gamesFoundOrCreated.length,
-      gamesFoundCount: gamesFoundOrCreated.length,
-    });
   }
 }

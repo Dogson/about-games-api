@@ -4,7 +4,6 @@ import {
   IsArray,
   IsOptional,
   IsString,
-  IsBoolean,
   IsDate,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -20,10 +19,6 @@ export class CreateGameDto {
   @Transform(({ value }) => new Date(value as string))
   @IsDate()
   releaseDate!: Date | null; // Use ISO date string for DTO
-
-  @IsOptional()
-  @IsBoolean()
-  ignoreDuringSearch?: boolean;
 
   @IsArray()
   @IsString({ each: true })

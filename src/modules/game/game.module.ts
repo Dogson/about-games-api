@@ -7,6 +7,7 @@ import { VideosHasGames } from '../../db/many-to-many/videos-has-games.table';
 import { Video } from '../video/entities/video.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import { IgdbModule } from '../igdb/igdb.module';
+import { AiModule } from '../ai/ai.module';
 import { createLoggerProvider } from '../logging/logger.provider';
 import { LoggingModule } from '../logging/logging.module';
 
@@ -17,6 +18,7 @@ import { LoggingModule } from '../logging/logging.module';
   imports: [
     SequelizeModule.forFeature([Game, VideosHasGames, Video, Channel]),
     forwardRef(() => IgdbModule),
+    AiModule,
     LoggingModule,
   ],
 })
