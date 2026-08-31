@@ -42,8 +42,7 @@ export class GameService {
     const page = findAllGamesDto.page ?? 1;
     const limit = findAllGamesDto.limit ?? ApiConfig.GAMES_LIMIT_DEFAULT;
     const offset = (page - 1) * limit;
-    const { search, ignoreDuringSearch, igdbId, onlyValidated, withVideos } =
-      findAllGamesDto;
+    const { search, igdbId, onlyValidated, withVideos } = findAllGamesDto;
     const { languages } = findAllGamesDto;
 
     const includeVideos = withVideos
@@ -84,10 +83,6 @@ export class GameService {
       searchConditions.length > 0 ? { [Op.or]: searchConditions } : undefined;
 
     const filterConditions: WhereOptions[] = [];
-
-    if (ignoreDuringSearch !== undefined) {
-      filterConditions.push({ ignoreDuringSearch: ignoreDuringSearch ? 1 : 0 });
-    }
 
     if (igdbId) {
       filterConditions.push({ igdbId });
@@ -293,7 +288,6 @@ export class GameService {
       companies: (igdbGame.involved_companies || []).map(
         (company) => company.company.name,
       ),
-      ignoreDuringSearch: false,
     };
   }
 
@@ -327,26 +321,24 @@ export class GameService {
         const updateDTOFromIgdb = this.mapIgdbGamesToCreateGamesDTO(igdbGame);
         const gameData = game.get({ plain: true }) as UpdateGameDto;
 
-        const keysToUpdate = Object.keys(updateDTOFromIgdb)
-          .filter((key) => key !== 'ignoreDuringSearch')
-          .filter((key) => {
-            if (!updateDTOFromIgdb[key] && !gameData[key]) {
-              return false;
-            }
-            if (Array.isArray(updateDTOFromIgdb[key])) {
-              return (
-                JSON.stringify(updateDTOFromIgdb[key]) !==
-                JSON.stringify(gameData[key])
-              );
-            }
-            if (key === 'releaseDate') {
-              return (
-                new Date(updateDTOFromIgdb[key] as Date).getTime() !==
-                new Date(gameData[key] as Date).getTime()
-              );
-            }
-            return updateDTOFromIgdb[key] !== gameData[key];
-          });
+        const keysToUpdate = Object.keys(updateDTOFromIgdb).filter((key) => {
+          if (!updateDTOFromIgdb[key] && !gameData[key]) {
+            return false;
+          }
+          if (Array.isArray(updateDTOFromIgdb[key])) {
+            return (
+              JSON.stringify(updateDTOFromIgdb[key]) !==
+              JSON.stringify(gameData[key])
+            );
+          }
+          if (key === 'releaseDate') {
+            return (
+              new Date(updateDTOFromIgdb[key] as Date).getTime() !==
+              new Date(gameData[key] as Date).getTime()
+            );
+          }
+          return updateDTOFromIgdb[key] !== gameData[key];
+        });
 
         if (keysToUpdate.length > 0) {
           await this.update(game.get('id'), updateDTOFromIgdb);

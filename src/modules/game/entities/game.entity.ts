@@ -3,7 +3,6 @@ import {
   BelongsToMany,
   Column,
   DataType,
-  Default,
   Model,
   NotEmpty,
   Table,
@@ -42,14 +41,6 @@ export class Game extends Model {
   @AllowNull(true)
   @Column({ type: DataType.TEXT, field: 'boxart_img' })
   declare boxartImg?: string;
-
-  @AllowNull(true)
-  @Default(0)
-  @Column({
-    type: DataType.BOOLEAN,
-    field: 'ignore_during_search',
-  })
-  declare ignoreDuringSearch?: boolean;
 
   @BelongsToMany(() => Video, () => VideosHasGames)
   videos!: Video[];
