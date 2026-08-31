@@ -16,12 +16,12 @@ import { Game } from '../../modules/game/entities/game.entity';
 export class VideosHasGames extends Model {
   @ForeignKey(() => Video)
   @Column({ field: 'video_id' })
-  videoId!: number;
+  declare videoId: number;
 
   @ForeignKey(() => Game)
   @Column({ field: 'game_id' })
-  gameId!: number;
+  declare gameId: number;
 
   @Column({ type: DataType.INTEGER, defaultValue: 0 })
-  rank!: number;
+  declare rank: number;
 }
