@@ -1,13 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import type { IGDBGame } from './dto/igdb-get-game.dto';
 import axios, { type AxiosResponse } from 'axios';
-import {
-  normalizeString,
-  removeAllAccents,
-  removeAllWhitespaces,
-  removeMatchesFromString,
-  removePossessives,
-} from '../../helpers/string/string.helper';
+import { normalizeGameName } from '../../helpers/string/string.helper';
 import { GameService } from '../game/game.service';
 import { AppLogger } from '../logging/app-logger.service';
 
@@ -30,51 +24,20 @@ export class IgdbService {
   ) {}
 
   /**
-   * Public method to extract mentioned games from a paragraph
+   * Look up candidate game names against IGDB and return the matched games
+   * in the original order of the provided names.
    */
-  async extractMentionedGames(
-    stringToParse: string,
-    ignoreSearchIn: string[] = [],
-    endParsingAfter: string[] = [],
-  ): Promise<IGDBGame[]> {
-    this.appLogger.log(`Parsing string for game titles: "${stringToParse}"`);
-
-    const candidateNames = this.extractTitleCandidates(
-      stringToParse,
-      ignoreSearchIn,
-      endParsingAfter,
+  async findGamesByNames(names: string[]): Promise<IGDBGame[]> {
+    this.appLogger.log(
+      `Searching games for candidate names: "${names.join(', ')}"`,
     );
 
-    // --- preserve first occurrence index of each normalized candidate
-    const candidateIndex = new Map<string, number>();
+    const uniqueNames = [...new Set(names)];
 
-    candidateNames.forEach((name, idx) => {
-      const normalized = removeAllAccents(
-        removeAllWhitespaces(normalizeString(name)),
-      );
+    const foundGameIds = new Set<number>();
+    const foundGames: IGDBGame[] = [];
 
-      if (!candidateIndex.has(normalized)) {
-        candidateIndex.set(normalized, idx);
-      }
-    });
-
-    const uniqueNames = [...new Set(candidateNames)];
-
-    const allFoundGames: { game: IGDBGame; index: number }[] = [];
-    const usedNames = new Set<string>();
-
-    const sortedNames = [...uniqueNames].sort((a, b) => b.length - a.length);
-
-    for (const name of sortedNames) {
-      const normalized = removeAllAccents(
-        removeAllWhitespaces(normalizeString(name)),
-      );
-
-      const isSubOfUsed = Array.from(usedNames).some((used) =>
-        used.includes(normalized),
-      );
-      if (isSubOfUsed) continue;
-
+    for (const name of uniqueNames) {
       try {
         let games: IGDBGame[] = [];
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -92,26 +55,10 @@ export class IgdbService {
         const foundGame = this._findGameInList(name, games);
 
         if (foundGame) {
-          const shouldIgnoreGame =
-            (
-              await this.gameService.findAll({
-                ignoreDuringSearch: true,
-                limit: 100000,
-                igdbId: foundGame.id,
-              })
-            ).total > 0;
+          if (foundGameIds.has(foundGame.id)) continue;
 
-          if (shouldIgnoreGame) {
-            this.appLogger.log(`Ignoring game "${foundGame.name}"`);
-            continue;
-          }
-
-          usedNames.add(normalized);
-
-          allFoundGames.push({
-            game: foundGame,
-            index: candidateIndex.get(normalized) ?? Number.MAX_SAFE_INTEGER,
-          });
+          foundGameIds.add(foundGame.id);
+          foundGames.push(foundGame);
         }
       } catch (error) {
         if (error instanceof Error) {
@@ -127,236 +74,13 @@ export class IgdbService {
       }
     }
 
-    // Filter out games that are substrings of other games
-    const filtered = allFoundGames.filter(({ game }) => {
-      const lowerStr = game.name.toLowerCase();
-
-      return !allFoundGames.some(
-        ({ game: other }) =>
-          other.name.toLowerCase() !== lowerStr &&
-          other.name.toLowerCase().includes(lowerStr),
-      );
-    });
-
-    // Restore original candidate order
-    const foundGamesWithoutUnrelevant = filtered
-      .sort((a, b) => a.index - b.index)
-      .map((x) => x.game);
-
     this.appLogger.log(
-      `Total games found: ${foundGamesWithoutUnrelevant.length} : ${foundGamesWithoutUnrelevant
+      `Total games found: ${foundGames.length} : ${foundGames
         .map((g) => g.name)
         .join(', ')}`,
     );
 
-    return foundGamesWithoutUnrelevant;
-  }
-
-  /**
-   * Naive NLP approach: extract capitalized sequences that could be game titles
-   */
-  private extractTitleCandidates(
-    text: string,
-    ignoreSearchIn: string[] = [],
-    endParsingAfter: string[] = [],
-  ): string[] {
-    const multiWordCandidates = new Set<string>();
-    const singleWordCandidates = new Set<string>();
-    let match: RegExpExecArray | null;
-
-    // === 0. Compile ignoreSearchIn and endParsingAfter patterns ===
-    const compileRegex = (patternStr: string): RegExp => {
-      const regexMatch = patternStr.match(/^\/(.+)\/([gimsuy]*)$/);
-      if (regexMatch) {
-        try {
-          return new RegExp(regexMatch[1], regexMatch[2]);
-        } catch {
-          return /a^/; // invalid pattern fallback
-        }
-      }
-      return /a^/;
-    };
-
-    const ignoreSearchPatterns = ignoreSearchIn.map(compileRegex);
-    const endParsingPatterns = endParsingAfter.map(compileRegex);
-
-    // === 1. Apply `endParsingAfter` truncation ===
-    for (const pattern of endParsingPatterns) {
-      const match = pattern.exec(text);
-      if (match && match.index !== undefined) {
-        text = text.slice(0, match.index + match[0].length);
-        break; // only apply the first match
-      }
-    }
-
-    // === 2. Remove timestamps ===
-    const timestampRegex = /\b\d+(?::\d+)+\b/g;
-    let cleanedText = removeMatchesFromString(text, timestampRegex);
-
-    // === 3. Remove substrings matching `ignoreSearchIn` ===
-    for (const pattern of ignoreSearchPatterns) {
-      cleanedText = removeMatchesFromString(cleanedText, pattern);
-    }
-
-    // === 3.5 Strip dots and possessives from cleanedText ===
-    cleanedText = removePossessives(cleanedText.replace(/\./g, ''));
-
-    // === 4. Segment text by hard boundaries (comma + line breaks) ===
-    const segments = cleanedText
-      .split(/(?:\r?\n|,)+/g)
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    // === 5. Extract quoted + compound titles per segment ===
-    const quotedTitleRegex = /["“'”]([^"“'”\n]{2,})["”']/g;
-
-    const titleRegex = new RegExp(
-      String.raw`\b(` +
-        String.raw`(?:\d+[:]?|[\p{Lu}][\p{L}\p{N}'’:-]*|[\p{Lu}]{2,})` +
-        String.raw`(?:` +
-        String.raw`(?:\s+[\p{Ll}]{1,4})+` +
-        String.raw`\s+(?:\d+[:]?|[\p{Lu}][\p{L}\p{N}'’:-]*|[\p{Lu}]{2,})` +
-        String.raw`|` +
-        String.raw`\s+(?:\d+[:]?|[\p{Lu}][\p{L}\p{N}'’:-]*|[\p{Lu}]{2,})` +
-        String.raw`)+` +
-        String.raw`)\b`,
-      'gu',
-    );
-
-    for (const segment of segments) {
-      let match: RegExpExecArray | null;
-
-      // --- quoted titles ---
-      while ((match = quotedTitleRegex.exec(segment)) !== null) {
-        multiWordCandidates.add(match[1].trim());
-      }
-
-      // reset regex state for each segment
-      titleRegex.lastIndex = 0;
-
-      // --- compound capitalized patterns ---
-      while ((match = titleRegex.exec(segment)) !== null) {
-        const candidate = match[1].trim();
-        const words = candidate.split(/\s+/);
-        const lastWord = words[words.length - 1];
-
-        const allowedLowercaseWords = [
-          'of',
-          'the',
-          'in',
-          'and',
-          'to',
-          'a',
-          'with',
-        ];
-
-        if (
-          !/^[a-z]{3,}$/.test(lastWord) ||
-          allowedLowercaseWords.includes(lastWord)
-        ) {
-          multiWordCandidates.add(candidate);
-        }
-      }
-    }
-
-    // === 6. Track words in multi-word titles ===
-    const wordsInsideMultiWordTitles = new Set<string>();
-    for (const title of multiWordCandidates) {
-      const words = title.split(/[\s:’‘'"-]+/u).filter(Boolean);
-      words.forEach((w) => wordsInsideMultiWordTitles.add(w.toLowerCase()));
-    }
-
-    // === 7. Fallback to single capitalized or numeric words ===
-    const singleWordTitleRegex = /\b(?:\d+|[A-Z]{2,}|[A-Z][a-z]{3,})\b/g;
-    while ((match = singleWordTitleRegex.exec(cleanedText)) !== null) {
-      const word = match[0];
-      if (!wordsInsideMultiWordTitles.has(word.toLowerCase())) {
-        singleWordCandidates.add(word);
-      }
-    }
-
-    // === 8. Combine sets, preserving order of first appearance in cleanedText ===
-    const allUnique = new Map<string, number>();
-
-    for (const title of multiWordCandidates) {
-      const pos = cleanedText.indexOf(title);
-      allUnique.set(title, pos === -1 ? Infinity : pos);
-    }
-
-    for (const word of singleWordCandidates) {
-      if (!allUnique.has(word)) {
-        const pos = cleanedText.indexOf(word);
-        allUnique.set(word, pos === -1 ? Infinity : pos);
-      }
-    }
-
-    const combined = new Set<string>();
-    Array.from(allUnique.entries())
-      .sort(([, a], [, b]) => a - b)
-      .forEach(([text]) => combined.add(text));
-
-    // === 9. Split compound titles like "A and B" ===
-    const connectorWords = ['and', 'vs', 'or', '&', 'et', 'ou', "it's", "It's"];
-    const combinedTitles = Array.from(combined);
-
-    for (const title of combinedTitles) {
-      for (const connector of connectorWords) {
-        const pattern = new RegExp(`^(.+?)\\s+${connector}\\s+(.+)$`, 'i');
-        const match = pattern.exec(title);
-        if (match) {
-          const [, left, right] = match;
-          if (left.length > 2 && right.length > 2) {
-            combined.add(left.trim());
-            combined.add(right.trim());
-          }
-        }
-      }
-    }
-
-    // === 10. Expand contiguous substrings ===
-    const expanded = new Set<string>();
-
-    for (const title of combined) {
-      const words = title.split(/\s+/).filter(Boolean);
-
-      // Normalize words but KEEP original structure for reconstruction
-      const normalizedWords = words.map((w) => ({
-        raw: w,
-        clean: w.replace(/['’]s$/i, ''),
-        isCapitalized:
-          w[0] === w[0].toUpperCase() ||
-          w.replace(/['’]s$/i, '')[0] ===
-            w.replace(/['’]s$/i, '')[0]?.toUpperCase(),
-      }));
-
-      // 1. Rebuild contiguous capitalized sequences (KEY FIX)
-      for (let i = 0; i < normalizedWords.length; i++) {
-        const buffer: string[] = [];
-
-        for (let j = i; j < normalizedWords.length; j++) {
-          const word = normalizedWords[j];
-
-          if (!word.clean) break;
-
-          buffer.push(word.clean);
-          if (buffer.length >= 2) {
-            expanded.add(buffer.join(' '));
-          }
-        }
-      }
-
-      // 2. Also keep standalone capitalized words (optional fallback)
-      for (const w of normalizedWords) {
-        const cleaned = w.clean;
-        if (cleaned && /^[A-Z]/.test(cleaned)) {
-          expanded.add(cleaned);
-        }
-      }
-    }
-
-    // === 11. Expand normalize 's possesives ===
-    // const normalizePossessive = (text: string) => text.replace(/['’]s\b/gi, '');
-    return Array.from(expanded);
+    return foundGames;
   }
 
   private async getAccessToken(): Promise<string> {
@@ -493,26 +217,15 @@ export class IgdbService {
     gameName: string,
     gameList: IGDBGame[],
   ): IGDBGame | null {
-    const normalizedTarget = removeAllAccents(
-      removeAllWhitespaces(normalizeString(gameName)),
-    );
+    const normalizedTarget = normalizeGameName(gameName);
 
     const matchingGames: IGDBGame[] = [];
     for (const game of gameList) {
-      if (
-        removeAllAccents(
-          removeAllWhitespaces(normalizeString(removePossessives(game.name))),
-        ) === normalizedTarget
-      ) {
+      if (normalizeGameName(game.name) === normalizedTarget) {
         matchingGames.push(game);
       } else if (
         game.alternative_names?.some(
-          (alt) =>
-            removeAllAccents(
-              removeAllWhitespaces(
-                normalizeString(removePossessives(alt.name)),
-              ),
-            ) === normalizedTarget,
+          (alt) => normalizeGameName(alt.name) === normalizedTarget,
         )
       ) {
         matchingGames.push(game);

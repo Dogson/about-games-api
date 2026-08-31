@@ -53,13 +53,6 @@ export class Channel extends Model {
   declare language: string;
 
   @AllowNull(true)
-  @Column({
-    type: DataType.STRING(255),
-    field: 'parsing_attribute',
-  })
-  declare parsingAttribute: string;
-
-  @AllowNull(true)
   @JsonArrayField('ignore_episodes_containing')
   declare ignoreEpisodesContaining: string[];
 
@@ -68,12 +61,8 @@ export class Channel extends Model {
   declare ignoreEpisodesMissing: string[];
 
   @AllowNull(true)
-  @JsonArrayField('ignore_search_in')
-  declare ignoreSearchIn: string[];
-
-  @AllowNull(true)
-  @JsonArrayField('end_parsing_after')
-  declare endParsingAfter: string[];
+  @Column({ type: DataType.TEXT, field: 'game_candidate_ai_prompt' })
+  declare gameCandidateAIPrompt?: string;
 
   @HasMany(() => Video)
   videos!: Video[];

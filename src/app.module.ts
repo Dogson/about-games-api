@@ -9,6 +9,7 @@ import { UserModule } from './modules/user/user.module';
 import { GameModule } from './modules/game/game.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IgdbModule } from './modules/igdb/igdb.module';
+import { AiModule } from './modules/ai/ai.module';
 import { CronModule } from './modules/cron/cron.module';
 import { YoutubeModule } from './modules/youtube/youtube.module';
 import { LoggingModule } from './modules/logging/logging.module';
@@ -37,6 +38,7 @@ import { LoggingModule } from './modules/logging/logging.module';
     ChannelModule,
     VideoModule,
     IgdbModule,
+    AiModule,
     CronModule,
     YoutubeModule,
     UserModule,

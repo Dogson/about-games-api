@@ -5,8 +5,8 @@ A REST API that links **YouTube videos** to **video games** by cross-referencing
 ## Features
 
 - **Channel ingestion** — track YouTube channels (by handle or ID) and pull their metadata from the YouTube Data API v3.
-- **Video population** — fetch every upload from a channel's uploads playlist, filtered by per-channel regex rules (`ignoreEpisodesContaining`, `ignoreEpisodesMissing`, `endParsingAfter`).
-- **Game detection** — a heuristic NLP parser (`src/modules/igdb/igdb.service.ts`) extracts game-title candidates from video text, then matches them against IGDB (title + alternative names, accent/whitespace-normalized).
+- **Video population** — fetch every upload from a channel's uploads playlist, filtered by per-channel regex rules (`ignoreEpisodesContaining`, `ignoreEpisodesMissing`).
+- **Game detection** — an AI-based extractor (`src/modules/ai/deepseek.service.ts`) uses a per-channel, editable prompt (default `DEFAULT_GAME_CANDIDATE_AI_PROMPT`) to identify the MAIN games in each video's title + description, then matches them against IGDB (title + alternative names, accent/whitespace-normalized).
 - **Games ↔ videos catalog** — many-to-many relations (`videos_has_games`) with deterministic ordering via a `rank` column, plus video validation/curation.
 - **JWT authentication** — bcrypt-hashed passwords and Passport JWT; write routes are guarded.
 - **Scheduled jobs** — daily channel/video sync, daily missing-video generation, monthly IGDB re-sync.
@@ -19,6 +19,7 @@ A REST API that links **YouTube videos** to **video games** by cross-referencing
 - [Passport](https://www.passportjs.org/) / JWT for authentication
 - [YouTube Data API v3](https://developers.google.com/youtube/v3)
 - [IGDB API v4](https://api-docs.igdb.com/) (Twitch OAuth for tokens)
+- [DeepSeek API](https://platform.deepseek.com/) (OpenAI-compatible chat completions, `deepseek-v4-flash` by default)
 - `@nestjs/schedule` for cron jobs, SSE for live logs
 
 ## Requirements
@@ -27,6 +28,7 @@ A REST API that links **YouTube videos** to **video games** by cross-referencing
 - MySQL 8+
 - A Google Cloud project with the YouTube Data API v3 enabled (for a `YOUTUBE_API_KEY`)
 - IGDB / Twitch API credentials (client ID + client secret) with an OAuth token endpoint
+- A DeepSeek API key (for AI-based game detection)
 
 ## Getting started
 
@@ -85,6 +87,9 @@ A REST API that links **YouTube videos** to **video games** by cross-referencing
 | `IGDB_API_CLIENT_ID`     | Yes      | IGDB client ID                                                         |
 | `IGDB_API_CLIENT_SECRET` | Yes      | IGDB client secret                                                     |
 | `IGDB_OAUTH_URL`         | Yes      | Twitch OAuth token endpoint (e.g. `https://id.twitch.tv/oauth2/token`) |
+| `DEEPSEEK_API_KEY`       | Yes      | DeepSeek API key (game detection)                                      |
+| `DEEPSEEK_API_HOST`      | No       | DeepSeek API base URL (default `https://api.deepseek.com`)             |
+| `DEEPSEEK_MODEL`         | No       | DeepSeek model (default `deepseek-v4-flash`)                           |
 
 > **Note:** `IGDB_OAUTH_URL` is read by the IGDB service (`src/modules/igdb/igdb.service.ts`) but is **missing from `.env.example`** — add it manually to your `.env`.
 
@@ -107,11 +112,11 @@ Write operations (create/update/delete) and the sync/search endpoints require a 
 
 Scheduled via `src/modules/cron/cron.service.ts`:
 
-| Schedule                   | Task                                                         |
-| -------------------------- | ------------------------------------------------------------ |
-| Every day at 00:00         | Sync all channel info from YouTube and remove deleted videos |
-| Every day at 02:00         | Generate missing videos for all channels                     |
-| 1st of each month at 00:00 | Re-sync all games with up-to-date IGDB data                  |
+| Schedule                   | Task                                                                     |
+| -------------------------- | ------------------------------------------------------------------------ |
+| Every day at 00:00         | Sync all channel info from YouTube and remove deleted videos             |
+| Every day at 23:00 UTC     | Generate missing videos for all channels (off-peak for DeepSeek pricing) |
+| 1st of each month at 00:00 | Re-sync all games with up-to-date IGDB data                              |
 
 ## Notes
 

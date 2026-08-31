@@ -29,3 +29,9 @@ export function removePossessives(input: string): string {
       .replace(/['’]s\b/gi, '')
   );
 }
+
+export function normalizeGameName(str: string): string {
+  return removeAllAccents(
+    removeAllWhitespaces(normalizeString(removePossessives(str))),
+  );
+}

@@ -1,11 +1,8 @@
 import { Video } from '../../video/entities/video.entity';
 
 export interface ParsingOptions {
-  parsingAttribute?: string;
   ignoreEpisodesContaining?: string[];
   ignoreEpisodesMissing?: string[];
-  ignoreSearchIn?: string[];
-  endParsingAfter?: string[];
 }
 
 export interface ChannelResponseDto {
@@ -18,6 +15,7 @@ export interface ChannelResponseDto {
   thumbnailUrl?: string;
   language: string;
   parsingOptions: ParsingOptions;
+  gameCandidateAIPrompt?: string;
   videos?: Video[];
   videosCount?: number;
   createdAt?: Date;

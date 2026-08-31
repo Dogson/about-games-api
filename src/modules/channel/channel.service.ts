@@ -113,24 +113,14 @@ export class ChannelService {
     const plainChannel = channel.get({ plain: true }) as Channel & {
       videosCount?: number;
     };
-    const {
-      parsingAttribute,
-      ignoreEpisodesContaining,
-      ignoreEpisodesMissing,
-      ignoreSearchIn,
-      endParsingAfter,
-      videos,
-      ...rest
-    } = plainChannel;
+    const { ignoreEpisodesContaining, ignoreEpisodesMissing, videos, ...rest } =
+      plainChannel;
 
     const result: ChannelResponseDto = {
       ...rest,
       parsingOptions: {
-        parsingAttribute,
         ignoreEpisodesContaining,
         ignoreEpisodesMissing,
-        ignoreSearchIn,
-        endParsingAfter,
       },
     };
 
@@ -204,10 +194,8 @@ export class ChannelService {
     if (parsingOptions) {
       return {
         ...rest,
-        parsingAttribute: parsingOptions.parsingAttribute,
         ignoreEpisodesContaining: parsingOptions.ignoreEpisodesContaining,
-        ignoreSearchIn: parsingOptions.ignoreSearchIn,
-        endParsingAfter: parsingOptions.endParsingAfter,
+        ignoreEpisodesMissing: parsingOptions.ignoreEpisodesMissing,
       };
     }
     return rest;

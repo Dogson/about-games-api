@@ -10,6 +10,7 @@ import { IgdbModule } from '../igdb/igdb.module';
 import { GameModule } from '../game/game.module';
 import { ChannelModule } from '../channel/channel.module';
 import { YoutubeModule } from '../youtube/youtube.module';
+import { AiModule } from '../ai/ai.module';
 import { createLoggerProvider } from '../logging/logger.provider';
 import { LoggingModule } from '../logging/logging.module';
 
@@ -21,6 +22,7 @@ import { LoggingModule } from '../logging/logging.module';
     IgdbModule,
     GameModule,
     YoutubeModule,
+    AiModule,
     forwardRef(() => ChannelModule),
     LoggingModule,
   ],

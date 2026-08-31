@@ -19,6 +19,8 @@ import { IgdbService } from '../igdb/igdb.service';
 import { AppLogger } from '../logging/app-logger.service';
 import { VideosHasGames } from 'src/db/many-to-many/videos-has-games.table';
 import { createProgressBar } from 'src/helpers/ascii/progressBar';
+import { DeepseekService } from '../ai/deepseek.service';
+import { DEFAULT_GAME_CANDIDATE_AI_PROMPT } from '../ai/game-candidate.prompt';
 import axios from 'axios';
 
 @Injectable()
@@ -28,6 +30,7 @@ export class GameService {
     private gameModel: typeof Game,
     @Inject(forwardRef(() => IgdbService))
     private readonly igdbService: IgdbService,
+    private readonly deepseekService: DeepseekService,
     private readonly appLogger: AppLogger,
   ) {}
 
@@ -369,6 +372,11 @@ export class GameService {
   }
 
   async igdbSearchWithinText(text: string): Promise<IGDBGame[]> {
-    return this.igdbService.extractMentionedGames(text);
+    const gameNames = await this.deepseekService.extractMainGameNames(
+      DEFAULT_GAME_CANDIDATE_AI_PROMPT,
+      text,
+      '',
+    );
+    return this.igdbService.findGamesByNames(gameNames);
   }
 }

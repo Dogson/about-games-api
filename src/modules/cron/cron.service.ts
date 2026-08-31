@@ -22,7 +22,7 @@ export class CronService {
     void this.channelService.syncAllYoutubeChannels();
   }
 
-  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  @Cron(CronExpression.EVERY_DAY_AT_11PM, { timeZone: 'UTC' })
   handleGenerateMissingVideosCron() {
     this.appLogger.log(
       'Running daily cron job to generate missing videos for all channels',
