@@ -1,98 +1,122 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# about-games-api
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A REST API that links **YouTube videos** to **video games** by cross-referencing channel uploads with the [IGDB](https://www.igdb.com/) game database. It aggregates gaming channels, detects which games are mentioned in each video's title or description, and exposes a browsable catalog of games, videos, and channels.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
 
-## Description
+- **Channel ingestion** — track YouTube channels (by handle or ID) and pull their metadata from the YouTube Data API v3.
+- **Video population** — fetch every upload from a channel's uploads playlist, filtered by per-channel regex rules (`ignoreEpisodesContaining`, `ignoreEpisodesMissing`, `endParsingAfter`).
+- **Game detection** — a heuristic NLP parser (`src/modules/igdb/igdb.service.ts`) extracts game-title candidates from video text, then matches them against IGDB (title + alternative names, accent/whitespace-normalized).
+- **Games ↔ videos catalog** — many-to-many relations (`videos_has_games`) with deterministic ordering via a `rank` column, plus video validation/curation.
+- **JWT authentication** — bcrypt-hashed passwords and Passport JWT; write routes are guarded.
+- **Scheduled jobs** — daily channel/video sync, daily missing-video generation, monthly IGDB re-sync.
+- **Live logging** — in-memory log bus streamed over SSE (`/logs/stream`) plus a `/logs/last` endpoint.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Tech stack
 
-## Project setup
+- [NestJS](https://nestjs.com/) 11
+- [Sequelize](https://sequelize.org/) + [Sequelize TypeScript](https://github.com/sequelize/sequelize-typescript) + MySQL 8
+- [Passport](https://www.passportjs.org/) / JWT for authentication
+- [YouTube Data API v3](https://developers.google.com/youtube/v3)
+- [IGDB API v4](https://api-docs.igdb.com/) (Twitch OAuth for tokens)
+- `@nestjs/schedule` for cron jobs, SSE for live logs
 
-```bash
-$ npm install
-```
+## Requirements
 
-## Compile and run the project
+- Node.js `22.17` (see `.nvmrc`)
+- MySQL 8+
+- A Google Cloud project with the YouTube Data API v3 enabled (for a `YOUTUBE_API_KEY`)
+- IGDB / Twitch API credentials (client ID + client secret) with an OAuth token endpoint
 
-```bash
-# development
-$ npm run start
+## Getting started
 
-# watch mode
-$ npm run start:dev
+1. Install dependencies:
 
-# production mode
-$ npm run start:prod
-```
+   ```bash
+   npm install
+   ```
 
-## Run tests
+2. Configure the environment. Copy `.env.example` to `.env` and fill in your credentials (see [Environment variables](#environment-variables)).
 
-```bash
-# unit tests
-$ npm run test
+3. Initialize the database — this creates the schema, applies referential actions, and loads seed data:
 
-# e2e tests
-$ npm run test:e2e
+   ```bash
+   npm run db:init
+   ```
 
-# test coverage
-$ npm run test:cov
-```
+4. Start the server:
 
-## Deployment
+   ```bash
+   # development
+   npm run start:dev
+   ```
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+   The API listens on the `PORT` env variable, defaulting to **`5000`** (`src/main.ts`).
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Scripts
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+| Command              | Description                         |
+| -------------------- | ----------------------------------- |
+| `npm run start`      | Run the app                         |
+| `npm run start:dev`  | Run in watch mode                   |
+| `npm run start:prod` | Run the compiled `dist/main` build  |
+| `npm run build`      | Compile the NestJS project          |
+| `npm run lint`       | Lint and auto-fix with ESLint       |
+| `npm run format`     | Format source with Prettier         |
+| `npm test`           | Run unit tests (Jest)               |
+| `npm run test:e2e`   | Run end-to-end tests                |
+| `npm run test:cov`   | Run tests with coverage             |
+| `npm run db:init`    | Set up the database (schema + seed) |
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Environment variables
 
-## Resources
+| Variable                 | Required | Description                                                            |
+| ------------------------ | -------- | ---------------------------------------------------------------------- |
+| `PORT`                   | No       | HTTP port (default `5000`)                                             |
+| `DB_USERNAME`            | Yes      | MySQL user                                                             |
+| `DB_PASSWORD`            | Yes      | MySQL password                                                         |
+| `DB_DATABASE_NAME`       | Yes      | MySQL database name                                                    |
+| `DB_HOST`                | Yes      | MySQL host                                                             |
+| `DB_PORT`                | Yes      | MySQL port                                                             |
+| `SECRET_JWT_KEY`         | Yes      | Secret used to sign JWT access tokens                                  |
+| `YOUTUBE_API_KEY`        | Yes      | YouTube Data API v3 key                                                |
+| `YOUTUBE_API_HOST`       | Yes      | YouTube API base URL (`https://www.googleapis.com/youtube/v3/`)        |
+| `IGDB_API_HOST`          | Yes      | IGDB API base URL (`https://api.igdb.com/v4/`)                         |
+| `IGDB_API_CLIENT_ID`     | Yes      | IGDB client ID                                                         |
+| `IGDB_API_CLIENT_SECRET` | Yes      | IGDB client secret                                                     |
+| `IGDB_OAUTH_URL`         | Yes      | Twitch OAuth token endpoint (e.g. `https://id.twitch.tv/oauth2/token`) |
 
-Check out a few resources that may come in handy when working with NestJS:
+> **Note:** `IGDB_OAUTH_URL` is read by the IGDB service (`src/modules/igdb/igdb.service.ts`) but is **missing from `.env.example`** — add it manually to your `.env`.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## API overview
 
-## Support
+All routes live under the following groups:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+| Group    | Base path   | Description                                                                                                                                                      |
+| -------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth     | `/auth`     | `POST /auth/login`, `GET /auth/validate`                                                                                                                         |
+| Users    | `/users`    | CRUD for admin users                                                                                                                                             |
+| Channels | `/channels` | CRUD + `generate` (videos), `:id/generateGames`, `syncAllYoutubeChannels`                                                                                        |
+| Videos   | `/videos`   | CRUD; filter with `validated`, `hasSearchedGames`                                                                                                                |
+| Games    | `/games`    | CRUD; filter with `search`, `igdbId`, `onlyValidated`, `withVideos`, `languages`, `page`, `limit`; plus `igdbSearch` / `igdbSearchWithinText` and `syncAllGames` |
+| Logs     | `/logs`     | `GET /logs/stream` (SSE), `GET /logs/last`                                                                                                                       |
 
-## Stay in touch
+Write operations (create/update/delete) and the sync/search endpoints require a JWT access token from `POST /auth/login` (`Authorization: Bearer <token>`). Read-only listing/detail endpoints are public.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Cron jobs
+
+Scheduled via `src/modules/cron/cron.service.ts`:
+
+| Schedule                   | Task                                                         |
+| -------------------------- | ------------------------------------------------------------ |
+| Every day at 00:00         | Sync all channel info from YouTube and remove deleted videos |
+| Every day at 02:00         | Generate missing videos for all channels                     |
+| 1st of each month at 00:00 | Re-sync all games with up-to-date IGDB data                  |
+
+## Notes
+
+- `setup_db.js` creates the database named by `DB_DATABASE_NAME`, but `db/db_schema.sql` hardcodes `about_games_db` as its schema name — keep them in sync or you may hit "database does not exist" errors.
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED — private project.
