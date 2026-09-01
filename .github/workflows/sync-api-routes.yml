@@ -34,7 +34,7 @@ jobs:
 
           cp API_ROUTES.md frontend/API_ROUTES.md
 
-          BRANCH="chore/update-api-routes"
+          BRANCH="chore/update-api-routes-${GITHUB_SHA::7}"
 
           cd frontend
 
@@ -53,9 +53,9 @@ jobs:
 
           git push --force "https://x-access-token:${GH_TOKEN}@github.com/Dogson/about-games.git" "$BRANCH"
 
-          # Reuse an existing PR for this branch, or create a new one
+          # Reuse an existing open PR for this branch, or create a new one
           PR_URL="$(
-            gh pr view --repo Dogson/about-games "$BRANCH" --json url -q .url 2>/dev/null || true
+            gh pr list --repo Dogson/about-games --head "$BRANCH" --state open --json url --jq '.[0].url'
           )"
 
           if [ -z "$PR_URL" ]; then
