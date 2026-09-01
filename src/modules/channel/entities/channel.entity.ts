@@ -61,6 +61,10 @@ export class Channel extends Model {
   declare ignoreEpisodesMissing: string[];
 
   @AllowNull(true)
+  @JsonArrayField('playlists_ids')
+  declare playlistsIds: string[];
+
+  @AllowNull(true)
   @Column({ type: DataType.TEXT, field: 'game_candidate_ai_prompt' })
   declare gameCandidateAIPrompt?: string;
 

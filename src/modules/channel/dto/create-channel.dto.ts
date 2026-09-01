@@ -13,6 +13,11 @@ class ParsingOptionsDto {
 
   @IsArray()
   ignoreEpisodesMissing!: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  playlistsIds?: string[];
 }
 
 export class CreateChannelDto {

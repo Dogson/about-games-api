@@ -125,10 +125,14 @@ export class VideoService {
     const destroyedVideos: string[] = [];
     const updatedVideos: string[] = [];
     try {
-      const youtubeUploadsId = channel.get('youtubeUploadsId');
+      const channelPlaylists = channel.get('playlistsIds') as string[] | null;
+      const playlistIds =
+        channelPlaylists && channelPlaylists.length > 0
+          ? channelPlaylists
+          : [channel.get('youtubeUploadsId')];
 
       const ytVideos =
-        await this.youtubeService.getAllVideosFromChannel(youtubeUploadsId);
+        await this.youtubeService.getAllVideosFromPlaylists(playlistIds);
       const ytVideoIds = new Set(ytVideos.map((v) => v.videoId));
       const existingVideos: Video[] = channel.get('videos') || [];
       for (const video of existingVideos) {

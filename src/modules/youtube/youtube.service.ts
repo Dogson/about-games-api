@@ -171,6 +171,25 @@ export class YoutubeService {
     }
   }
 
+  async getAllVideosFromPlaylists(
+    playlistIds: string[],
+  ): Promise<YouTubeVideoItem[]> {
+    const videos: YouTubeVideoItem[] = [];
+    const seenVideoIds = new Set<string>();
+
+    for (const playlistId of playlistIds) {
+      const playlistVideos = await this.getAllVideosFromChannel(playlistId);
+      for (const video of playlistVideos) {
+        if (!seenVideoIds.has(video.videoId)) {
+          seenVideoIds.add(video.videoId);
+          videos.push(video);
+        }
+      }
+    }
+
+    return videos;
+  }
+
   async isYoutubeShort(videoId: string): Promise<boolean> {
     const url = `https://www.youtube.com/shorts/${videoId}`;
 

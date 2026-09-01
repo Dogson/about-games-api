@@ -113,14 +113,20 @@ export class ChannelService {
     const plainChannel = channel.get({ plain: true }) as Channel & {
       videosCount?: number;
     };
-    const { ignoreEpisodesContaining, ignoreEpisodesMissing, videos, ...rest } =
-      plainChannel;
+    const {
+      ignoreEpisodesContaining,
+      ignoreEpisodesMissing,
+      playlistsIds,
+      videos,
+      ...rest
+    } = plainChannel;
 
     const result: ChannelResponseDto = {
       ...rest,
       parsingOptions: {
         ignoreEpisodesContaining,
         ignoreEpisodesMissing,
+        playlistsIds,
       },
     };
 
@@ -165,9 +171,19 @@ export class ChannelService {
     // Flatten parsingOptions if provided
     const updateData = this._flattenParsingOptions(updateChannelDto);
 
+    const playlistsIdsChanged =
+      updateChannelDto.parsingOptions?.playlistsIds !== undefined;
+
     await this.channelModel.update(updateData, {
       where: { id },
     });
+
+    if (playlistsIdsChanged) {
+      this.appLogger.log(
+        `Playlists updated for channel "${existingChannel.get('name')}" (ID: ${id}), resyncing videos...`,
+      );
+      void this._resyncVideosForChannel(id);
+    }
 
     const updatedChannel = await this.channelModel.findByPk(id, {
       attributes: {
@@ -192,11 +208,20 @@ export class ChannelService {
   ): Partial<Channel> {
     const { parsingOptions, ...rest } = dto;
     if (parsingOptions) {
-      return {
+      const flattened: Partial<Channel> = {
         ...rest,
-        ignoreEpisodesContaining: parsingOptions.ignoreEpisodesContaining,
-        ignoreEpisodesMissing: parsingOptions.ignoreEpisodesMissing,
       };
+      if (parsingOptions.ignoreEpisodesContaining !== undefined) {
+        flattened.ignoreEpisodesContaining =
+          parsingOptions.ignoreEpisodesContaining;
+      }
+      if (parsingOptions.ignoreEpisodesMissing !== undefined) {
+        flattened.ignoreEpisodesMissing = parsingOptions.ignoreEpisodesMissing;
+      }
+      if (parsingOptions.playlistsIds !== undefined) {
+        flattened.playlistsIds = parsingOptions.playlistsIds;
+      }
+      return flattened;
     }
     return rest;
   }
@@ -380,11 +405,28 @@ export class ChannelService {
     }
   }
 
+  private async _resyncVideosForChannel(channelId: number): Promise<void> {
+    const channel = await this.channelModel.findByPk(channelId, {
+      include: [{ model: Video }],
+    });
+    if (!channel) {
+      this.appLogger.error(
+        `Failed to resync videos: channel with id ${channelId} not found`,
+      );
+      return;
+    }
+
+    await this.videoService.syncVideosFromYoutube(channel);
+    await this._populateVideosForChannel(channel);
+  }
+
   private async _populateVideosForChannel(channel: Channel): Promise<void> {
     const plainChannel = channel.get({ plain: true }) as Channel;
 
-    const videos = await this.youtubeService.getAllVideosFromChannel(
-      plainChannel.youtubeUploadsId,
+    const videos = await this.youtubeService.getAllVideosFromPlaylists(
+      plainChannel.playlistsIds?.length
+        ? plainChannel.playlistsIds
+        : [plainChannel.youtubeUploadsId],
     );
 
     const existingVideos = channel.get('videos') || [];
