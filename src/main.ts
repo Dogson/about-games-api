@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SequelizeExceptionFilter } from './filters/sequelize-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
 
   // Enable validation globally
   app.useGlobalPipes(
@@ -22,6 +24,6 @@ async function bootstrap() {
     credentials: true, // if you want cookies/auth headers to work
   });
 
-  await app.listen(process.env.PORT ?? 5000, '0.0.0.0');
+  await app.listen(configService.get<number>('PORT') ?? 5000, '0.0.0.0');
 }
 bootstrap();

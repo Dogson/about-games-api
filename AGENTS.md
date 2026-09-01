@@ -1,10 +1,10 @@
-# Copilot Instructions
+# Agent Instructions
 
 This repository is a **NestJS 11 + MySQL (Sequelize)** REST API that links **YouTube videos** to **video games** (IGDB). Follow these conventions in every change.
 
 ## TypeScript (strict — no `any`, ever)
 
-- Never use `any` or implicit `any`. Use `unknown` for unknown inputs and narrow it with type guards (`instanceof Error`, `axios.isAxiosError`, custom guards).
+- Never use `any`, implicit `any`, `as any`, or `@ts-ignore`. Use `unknown` for unknown inputs and narrow it with type guards (`instanceof Error`, `axios.isAxiosError`, custom guards).
 - Declare explicit return types on all public methods and exported functions.
 - Sequelize entities use `declare`-typed fields (see `src/modules/*/entities/*.entity.ts`).
 - Be explicit about nullability: `foo: string | null` or `foo?: string`. Never add non-null assertions (`!`) unless provably safe.

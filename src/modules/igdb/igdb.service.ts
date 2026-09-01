@@ -1,4 +1,5 @@
 import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { IGDBGame } from './dto/igdb-get-game.dto';
 import axios, { type AxiosResponse } from 'axios';
 import { normalizeGameName } from '../../helpers/string/string.helper';
@@ -12,16 +13,24 @@ export class IgdbService {
 
   private readonly logger = new Logger(IgdbService.name);
 
-  private readonly apiHost = process.env.IGDB_API_HOST || '';
-  private readonly apiClientId = process.env.IGDB_API_CLIENT_ID || '';
-  private readonly apiClientSecret = process.env.IGDB_API_CLIENT_SECRET || '';
-  private readonly oauthUrl = process.env.IGDB_OAUTH_URL || '';
+  private readonly apiHost: string;
+  private readonly apiClientId: string;
+  private readonly apiClientSecret: string;
+  private readonly oauthUrl: string;
 
   constructor(
     @Inject(forwardRef(() => GameService))
     private readonly gameService: GameService,
+    private readonly configService: ConfigService,
     private readonly appLogger: AppLogger,
-  ) {}
+  ) {
+    this.apiHost = this.configService.get<string>('IGDB_API_HOST') || '';
+    this.apiClientId =
+      this.configService.get<string>('IGDB_API_CLIENT_ID') || '';
+    this.apiClientSecret =
+      this.configService.get<string>('IGDB_API_CLIENT_SECRET') || '';
+    this.oauthUrl = this.configService.get<string>('IGDB_OAUTH_URL') || '';
+  }
 
   /**
    * Look up candidate game names against IGDB and return the matched games

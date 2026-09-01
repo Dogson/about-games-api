@@ -11,7 +11,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Video } from '../video/entities/video.entity';
 import { Channel } from '../channel/entities/channel.entity';
 import type { FindAllGamesDto } from './dto/find-all-games.dto';
-import { Op, Sequelize, WhereOptions } from 'sequelize';
+import { IncludeOptions, Op, Sequelize, WhereOptions } from 'sequelize';
 import ApiConfig from '../../api.config';
 import type { IGDBGame } from '../igdb/dto/igdb-get-game.dto';
 import { instanceToPlain } from 'class-transformer';
@@ -195,7 +195,7 @@ export class GameService {
       ? { language: { [Op.in]: normalizedLanguages } }
       : undefined;
 
-    const videoIncludeConfig: any = {
+    const videoIncludeConfig: IncludeOptions = {
       model: Video,
       through: { attributes: [] },
       required: false,
@@ -216,7 +216,7 @@ export class GameService {
             attributes: [],
           },
           order: [
-            [{ model: Video, as: undefined }, VideosHasGames, 'rank', 'ASC'],
+            [{ model: Video, as: 'videos' }, VideosHasGames, 'rank', 'ASC'],
           ],
         },
       ],
@@ -321,7 +321,9 @@ export class GameService {
         const updateDTOFromIgdb = this.mapIgdbGamesToCreateGamesDTO(igdbGame);
         const gameData = game.get({ plain: true }) as UpdateGameDto;
 
-        const keysToUpdate = Object.keys(updateDTOFromIgdb).filter((key) => {
+        const keysToUpdate = (
+          Object.keys(updateDTOFromIgdb) as Array<keyof CreateGameDto>
+        ).filter((key) => {
           if (!updateDTOFromIgdb[key] && !gameData[key]) {
             return false;
           }
@@ -343,7 +345,7 @@ export class GameService {
         if (keysToUpdate.length > 0) {
           await this.update(game.get('id'), updateDTOFromIgdb);
           this.appLogger.log(
-            `Updated game ${game.get('title')} with new IGDB data : ${keysToUpdate.map((key) => `${key}=${updateDTOFromIgdb[key]}`).join(', ')}.`,
+            `Updated game ${game.get('title')} with new IGDB data : ${keysToUpdate.map((key) => `${key}=${String(updateDTOFromIgdb[key])}`).join(', ')}.`,
           );
         } else {
           this.appLogger.log(

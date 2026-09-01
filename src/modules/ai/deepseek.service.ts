@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { type AxiosResponse } from 'axios';
+import { ConfigService } from '@nestjs/config';
 import { DEFAULT_GAME_CANDIDATE_AI_PROMPT } from './game-candidate.prompt';
 import { AppLogger } from '../logging/app-logger.service';
 
@@ -20,14 +21,23 @@ interface ChatCompletionResponse {
 export class DeepseekService {
   private readonly logger = new Logger(DeepseekService.name);
 
-  private readonly apiHost =
-    process.env.DEEPSEEK_API_HOST || 'https://api.deepseek.com';
-  private readonly apiKey = process.env.DEEPSEEK_API_KEY || '';
-  private readonly model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
+  private readonly apiHost: string;
+  private readonly apiKey: string;
+  private readonly model: string;
 
   private readonly descriptionMaxChars = 3000;
 
-  constructor(private readonly appLogger: AppLogger) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly appLogger: AppLogger,
+  ) {
+    this.apiHost =
+      this.configService.get<string>('DEEPSEEK_API_HOST') ||
+      'https://api.deepseek.com';
+    this.apiKey = this.configService.get<string>('DEEPSEEK_API_KEY') || '';
+    this.model =
+      this.configService.get<string>('DEEPSEEK_MODEL') || 'deepseek-v4-flash';
+  }
 
   /**
    * Ask the model to extract the main game titles from a video title + description.

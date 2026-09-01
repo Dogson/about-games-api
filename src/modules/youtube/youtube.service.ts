@@ -1,4 +1,5 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import axios, { type AxiosResponse } from 'axios';
 import type {
   YouTubeApiErrorResponse,
@@ -12,9 +13,14 @@ import {
 
 @Injectable()
 export class YoutubeService {
-  private readonly apiKey = process.env.YOUTUBE_API_KEY;
-  private readonly apiHost = process.env.YOUTUBE_API_HOST;
+  private readonly apiKey: string;
+  private readonly apiHost: string;
   private readonly logger = new Logger(YoutubeService.name);
+
+  constructor(private readonly configService: ConfigService) {
+    this.apiKey = this.configService.get<string>('YOUTUBE_API_KEY') || '';
+    this.apiHost = this.configService.get<string>('YOUTUBE_API_HOST') || '';
+  }
 
   async getYtChannelInfosById(channelId: string): Promise<YouTubeChannel> {
     return this._getYtChannelInfosByIdOrHandle({

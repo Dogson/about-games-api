@@ -6,7 +6,7 @@ export interface LogEvent {
   level: 'log' | 'error' | 'warn' | 'debug';
   context?: string;
   timestamp: number;
-  trace: any;
+  trace?: string;
 }
 
 @Injectable()
