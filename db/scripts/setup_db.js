@@ -1,9 +1,27 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
+const readline = require('readline');
 const mysql = require('mysql2/promise');
 
 const SQL_DIR = path.join(__dirname, '..', 'sql');
+
+function confirmDatabaseReset() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(
+      'This script will ERASE the current database and re-populate it with initial data.\nType "yes" to continue: ',
+      (answer) => {
+        rl.close();
+        resolve(answer.trim().toLowerCase() === 'yes');
+      },
+    );
+  });
+}
 
 async function runSqlFile(connection, filePath) {
   const sql = fs.readFileSync(filePath, 'utf8');
@@ -20,6 +38,12 @@ async function runSqlFile(connection, filePath) {
 }
 
 async function main() {
+  const confirmed = await confirmDatabaseReset();
+  if (!confirmed) {
+    console.log('Aborted. No changes were made.');
+    process.exit(0);
+  }
+
   const { DB_USERNAME, DB_PASSWORD, DB_DATABASE_NAME, DB_HOST, DB_PORT } =
     process.env;
 
