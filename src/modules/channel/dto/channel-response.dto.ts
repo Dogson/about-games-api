@@ -2,7 +2,6 @@ import { Video } from '../../video/entities/video.entity';
 
 export interface ParsingOptions {
   ignoreEpisodesContaining?: string[];
-  ignoreEpisodesMissing?: string[];
   playlistsIds?: string[];
 }
 

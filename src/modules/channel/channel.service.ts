@@ -10,7 +10,7 @@ import { Channel } from './entities/channel.entity';
 import { Video } from '../video/entities/video.entity';
 import { YoutubeService } from '../youtube/youtube.service';
 import { VideoService } from '../video/video.service';
-import { Sequelize } from 'sequelize';
+import { Op, Sequelize, WhereOptions } from 'sequelize';
 import { ChannelResponseDto } from './dto/channel-response.dto';
 import { AppLogger } from '../logging/app-logger.service';
 import { createProgressBar } from 'src/helpers/ascii/progressBar';
@@ -113,19 +113,13 @@ export class ChannelService {
     const plainChannel = channel.get({ plain: true }) as Channel & {
       videosCount?: number;
     };
-    const {
-      ignoreEpisodesContaining,
-      ignoreEpisodesMissing,
-      playlistsIds,
-      videos,
-      ...rest
-    } = plainChannel;
+    const { ignoreEpisodesContaining, playlistsIds, videos, ...rest } =
+      plainChannel;
 
     const result: ChannelResponseDto = {
       ...rest,
       parsingOptions: {
         ignoreEpisodesContaining,
-        ignoreEpisodesMissing,
         playlistsIds,
       },
     };
@@ -173,6 +167,8 @@ export class ChannelService {
 
     const playlistsIdsChanged =
       updateChannelDto.parsingOptions?.playlistsIds !== undefined;
+    const ignoreEpisodesContainingChanged =
+      updateChannelDto.parsingOptions?.ignoreEpisodesContaining !== undefined;
 
     await this.channelModel.update(updateData, {
       where: { id },
@@ -180,9 +176,14 @@ export class ChannelService {
 
     if (playlistsIdsChanged) {
       this.appLogger.log(
-        `Playlists updated for channel "${existingChannel.get('name')}" (ID: ${id}), resyncing videos...`,
+        `Playlists updated for channel "${existingChannel.get('name')}" (ID: ${id}), erasing all videos and resyncing...`,
       );
-      void this._resyncVideosForChannel(id);
+      void this._refetchVideosForChannel(id, true);
+    } else if (ignoreEpisodesContainingChanged) {
+      this.appLogger.log(
+        `Parsing options updated for channel "${existingChannel.get('name')}" (ID: ${id}), erasing non-validated videos and refetching...`,
+      );
+      void this._refetchVideosForChannel(id, false);
     }
 
     const updatedChannel = await this.channelModel.findByPk(id, {
@@ -214,9 +215,6 @@ export class ChannelService {
       if (parsingOptions.ignoreEpisodesContaining !== undefined) {
         flattened.ignoreEpisodesContaining =
           parsingOptions.ignoreEpisodesContaining;
-      }
-      if (parsingOptions.ignoreEpisodesMissing !== undefined) {
-        flattened.ignoreEpisodesMissing = parsingOptions.ignoreEpisodesMissing;
       }
       if (parsingOptions.playlistsIds !== undefined) {
         flattened.playlistsIds = parsingOptions.playlistsIds;
@@ -405,19 +403,34 @@ export class ChannelService {
     }
   }
 
-  private async _resyncVideosForChannel(channelId: number): Promise<void> {
-    const channel = await this.channelModel.findByPk(channelId, {
-      include: [{ model: Video }],
-    });
+  private async _refetchVideosForChannel(
+    channelId: number,
+    eraseAllVideos: boolean,
+  ): Promise<void> {
+    const channel = await this.channelModel.findByPk(channelId);
     if (!channel) {
       this.appLogger.error(
-        `Failed to resync videos: channel with id ${channelId} not found`,
+        `Failed to refetch videos: channel with id ${channelId} not found`,
       );
       return;
     }
 
-    await this.videoService.syncVideosFromYoutube(channel);
-    await this._populateVideosForChannel(channel);
+    const where: WhereOptions<Video> = { ytChannelId: channelId };
+    if (!eraseAllVideos) {
+      where.validated = { [Op.not]: true };
+    }
+
+    const erasedCount = await this.videoModel.destroy({ where });
+    this.appLogger.log(
+      `Erased ${erasedCount} videos for channel "${channel.get('name')}" (ID: ${channelId}) before refetching`,
+    );
+
+    const refreshedChannel = await this.channelModel.findByPk(channelId, {
+      include: [{ model: Video }],
+    });
+    if (refreshedChannel) {
+      await this._populateVideosForChannel(refreshedChannel);
+    }
   }
 
   private async _populateVideosForChannel(channel: Channel): Promise<void> {
@@ -452,19 +465,6 @@ export class ChannelService {
         return /a^/;
       }) || [];
 
-    const ignoreMissingPatterns: (RegExp | string)[] =
-      plainChannel.ignoreEpisodesMissing?.map((patternStr) => {
-        const regexMatch = patternStr.match(/^\/(.+)\/([gimsuy]*)$/);
-        if (regexMatch) {
-          try {
-            return new RegExp(regexMatch[1], regexMatch[2]);
-          } catch {
-            return ''; // won't match anything
-          }
-        }
-        return patternStr; // treat as simple substring
-      }) || [];
-
     let ignoredVideosCount = 0;
 
     const videoDtos = newVideos
@@ -487,21 +487,6 @@ export class ChannelService {
         if (ignoreContainingPattern.some((regex) => regex.test(title))) {
           ignoredVideosCount++;
           return false;
-        }
-
-        // Ignore if title does NOT contain ANY of the "ignoreEpisodesMissing" patterns
-        // That is, if none of these patterns appear in the title, ignore video
-        if (ignoreMissingPatterns.length > 0) {
-          const containsAny = ignoreMissingPatterns.some((pattern) => {
-            if (pattern instanceof RegExp) {
-              return pattern.test(title);
-            }
-            return title.includes(pattern);
-          });
-          if (!containsAny) {
-            ignoredVideosCount++;
-            return false;
-          }
         }
 
         // Otherwise keep the video

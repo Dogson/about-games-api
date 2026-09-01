@@ -8,11 +8,9 @@ import {
 import { Type } from 'class-transformer';
 
 class ParsingOptionsDto {
+  @IsOptional()
   @IsArray()
-  ignoreEpisodesContaining!: string[];
-
-  @IsArray()
-  ignoreEpisodesMissing!: string[];
+  ignoreEpisodesContaining?: string[];
 
   @IsOptional()
   @IsArray()

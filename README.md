@@ -5,7 +5,7 @@ A REST API that links **YouTube videos** to **video games** by cross-referencing
 ## Features
 
 - **Channel ingestion** — track YouTube channels (by handle or ID) and pull their metadata from the YouTube Data API v3.
-- **Video population** — fetch every upload from a channel's uploads playlist, filtered by per-channel regex rules (`ignoreEpisodesContaining`, `ignoreEpisodesMissing`).
+- **Video population** — fetch every upload from a channel's uploads playlist, filtered by per-channel regex rules (`ignoreEpisodesContaining`).
 - **Game detection** — an AI-based extractor (`src/modules/ai/deepseek.service.ts`) uses a per-channel, editable prompt (default `DEFAULT_GAME_CANDIDATE_AI_PROMPT`) to identify the MAIN games in each video's title + description, then matches them against IGDB (title + alternative names, accent/whitespace-normalized).
 - **Games ↔ videos catalog** — many-to-many relations (`videos_has_games`) with deterministic ordering via a `rank` column, plus video validation/curation.
 - **JWT authentication** — bcrypt-hashed passwords and Passport JWT; write routes are guarded.

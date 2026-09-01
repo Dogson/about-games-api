@@ -57,10 +57,6 @@ export class Channel extends Model {
   declare ignoreEpisodesContaining: string[];
 
   @AllowNull(true)
-  @JsonArrayField('ignore_episodes_missing')
-  declare ignoreEpisodesMissing: string[];
-
-  @AllowNull(true)
   @JsonArrayField('playlists_ids')
   declare playlistsIds: string[];
 
