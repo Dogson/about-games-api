@@ -1,0 +1,70 @@
+name: Sync API Routes to Frontend
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'API_ROUTES.md'
+
+permissions:
+  contents: read
+
+jobs:
+  sync-api-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout about-games-api
+        uses: actions/checkout@v4
+
+      - name: Clone about-games (frontend)
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git clone --branch develop --single-branch \
+            "https://x-access-token:${GH_TOKEN}@github.com/Dogson/about-games.git" frontend
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update API_ROUTES.md in frontend
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          cp API_ROUTES.md frontend/API_ROUTES.md
+
+          BRANCH="chore/update-api-routes"
+
+          cd frontend
+
+          # Reset the branch to the latest develop in case it already exists on the remote
+          git checkout -B "$BRANCH" origin/develop
+
+          git add API_ROUTES.md
+
+          # Nothing changed compared to the target branch: nothing to do
+          if git diff --cached --quiet; then
+            echo "API_ROUTES.md is already up to date in about-games. Skipping."
+            exit 0
+          fi
+
+          git commit -m "chore: update API_ROUTES.md from about-games-api"
+
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/Dogson/about-games.git" "$BRANCH"
+
+          # Reuse an existing PR for this branch, or create a new one
+          PR_URL="$(
+            gh pr view --repo Dogson/about-games "$BRANCH" --json url -q .url 2>/dev/null || true
+          )"
+
+          if [ -z "$PR_URL" ]; then
+            gh pr create \
+              --repo Dogson/about-games \
+              --base develop \
+              --head "$BRANCH" \
+              --title "chore: update API_ROUTES.md" \
+              --body "Automated sync of \`API_ROUTES.md\` from \`about-games-api\` (commit \`${GITHUB_SHA}\`)."
+          else
+            echo "PR already exists: $PR_URL"
+          fi

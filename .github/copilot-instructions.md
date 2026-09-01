@@ -44,6 +44,12 @@ This repository is a **NestJS 11 + MySQL (Sequelize)** REST API that links **You
 - Write identifiers and comments in English (legacy French comments are not examples to copy).
 - Defer formatting to Prettier/ESLint configs; run `npm run lint` and `npm run format` before finishing.
 
+## API routes documentation
+
+- Keep `API_ROUTES.md` (repo root) in sync with the code in every change that creates, edits, or deletes an API route.
+- Record the HTTP method, path, auth requirement (JWT or public), and the request body/query/params for each route.
+- Note in `API_ROUTES.md` when a route prefix in `src/routes.config.ts` or a guard usage changes.
+
 ## Do / Don't
 
 - **Do** write explicit, well-named types for every function signature and result.
