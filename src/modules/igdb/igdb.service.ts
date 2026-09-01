@@ -5,6 +5,19 @@ import axios, { type AxiosResponse } from 'axios';
 import { normalizeGameName } from '../../helpers/string/string.helper';
 import { GameService } from '../game/game.service';
 import { AppLogger } from '../logging/app-logger.service';
+import type { IgdbSearchOptions } from './igdb-search-query.helper';
+
+const IGDB_SEARCH_FIELDS = `
+  fields
+    id,
+    game_type,
+    name,
+    total_rating_count,
+    alternative_names.name,
+    release_dates.date,
+    involved_companies.company.name,
+    cover.url,
+    screenshots.url;`;
 
 @Injectable()
 export class IgdbService {
@@ -124,49 +137,84 @@ export class IgdbService {
     }
   }
 
-  public async queryIGDBByName(name: string): Promise<IGDBGame[]> {
+  public async queryIGDBByName(
+    name: string,
+    options: IgdbSearchOptions = {},
+  ): Promise<IGDBGame[]> {
+    const { year = null, limit = 50 } = options;
+
+    const whereParts: string[] = [
+      'game_type != 5 & game_type != 3 & release_dates.date_format=0',
+    ];
+    if (year !== null) {
+      whereParts.push(`release_dates.y = ${year}`);
+    }
+
+    const games = await this._requestIgdb(
+      `search "${name}";
+        ${IGDB_SEARCH_FIELDS}
+      limit ${limit};
+      where ${whereParts.join(' & ')};`,
+      `querying IGDB by name "${name}"`,
+    );
+
+    if (year !== null) {
+      return this._filterGamesByEarliestReleaseYear(games, year);
+    }
+
+    return games;
+  }
+
+  private _filterGamesByEarliestReleaseYear(
+    games: IGDBGame[],
+    year: number,
+  ): IGDBGame[] {
+    return games.filter((game) => {
+      const releaseYears = (game.release_dates ?? [])
+        .map((releaseDate) => releaseDate.date)
+        .filter((date): date is number => date != null)
+        .map((date) => new Date(date * 1000).getUTCFullYear());
+
+      if (releaseYears.length === 0) {
+        return false;
+      }
+
+      return Math.min(...releaseYears) === year;
+    });
+  }
+
+  public async queryIGDBById(id: number): Promise<IGDBGame[]> {
+    return this._requestIgdb(
+      `${IGDB_SEARCH_FIELDS}
+      where id=${id};`,
+      `querying IGDB by id "${id}"`,
+    );
+  }
+
+  private async _requestIgdb(
+    query: string,
+    logContext: string,
+  ): Promise<IGDBGame[]> {
     const token = await this.getAccessToken();
 
     try {
-      const response = await axios.post(
-        this.apiHost,
-        `search "${name}"; 
-        fields
-          id,
-          game_type,
-          name,
-          total_rating_count,
-          alternative_names.name,
-          release_dates.date,
-          involved_companies.company.name,
-          cover.url,
-          screenshots.url;
-      limit 50;
-      where game_type != 5 & game_type != 3 & release_dates.date_format=0;`,
-        {
-          headers: {
-            'Client-ID': this.apiClientId,
-            Authorization: `Bearer ${token}`,
-          },
+      const response = await axios.post(this.apiHost, query, {
+        headers: {
+          'Client-ID': this.apiClientId,
+          Authorization: `Bearer ${token}`,
         },
-      );
+      });
       return response.data as IGDBGame[];
     } catch (error: unknown) {
       if (axios.isAxiosError(error) && error.response?.status === 429) {
         throw error;
       }
       if (axios.isAxiosError(error)) {
-        this.appLogger.warn(
-          `Failed to query IGDB for "${name}": ${error.message}`,
-        );
+        this.appLogger.warn(`Failed to ${logContext}: ${error.message}`);
       } else if (error instanceof Error) {
-        this.appLogger.warn(
-          `Failed to query IGDB for "${name}": ${error.message}`,
-        );
+        this.appLogger.warn(`Failed to ${logContext}: ${error.message}`);
       } else {
-        this.appLogger.warn(
-          `Failed to query IGDB for "${name}": Unknown error`,
-        );
+        this.appLogger.warn(`Failed to ${logContext}: Unknown error`);
       }
       return [];
     }

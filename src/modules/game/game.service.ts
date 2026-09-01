@@ -21,6 +21,10 @@ import { VideosHasGames } from 'src/db/many-to-many/videos-has-games.table';
 import { createProgressBar } from 'src/helpers/ascii/progressBar';
 import { DeepseekService } from '../ai/deepseek.service';
 import { DEFAULT_GAME_CANDIDATE_AI_PROMPT } from '../ai/game-candidate.prompt';
+import {
+  parseIgdbSearchQuery,
+  type IgdbSearchOptions,
+} from '../igdb/igdb-search-query.helper';
 import axios from 'axios';
 
 @Injectable()
@@ -362,7 +366,20 @@ export class GameService {
   }
 
   async igdbSearch(search: string): Promise<IGDBGame[]> {
-    return this.igdbService.queryIGDBByName(search);
+    const query = parseIgdbSearchQuery(search);
+
+    if (query.mode === 'id') {
+      return this.igdbService.queryIGDBById(query.id);
+    }
+
+    const options: IgdbSearchOptions = {
+      limit: 500,
+    };
+    if (query.year !== null) {
+      options.year = query.year;
+    }
+
+    return this.igdbService.queryIGDBByName(query.name, options);
   }
 
   async igdbSearchWithinText(text: string): Promise<IGDBGame[]> {
