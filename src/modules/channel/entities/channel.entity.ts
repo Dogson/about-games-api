@@ -61,8 +61,8 @@ export class Channel extends Model {
   declare playlistsIds: string[];
 
   @AllowNull(true)
-  @Column({ type: DataType.TEXT, field: 'game_candidate_ai_prompt' })
-  declare gameCandidateAIPrompt?: string;
+  @Column({ type: DataType.TEXT, field: 'additional_game_candidate_ai_prompt' })
+  declare additionalGameCandidateAIPrompt?: string;
 
   @HasMany(() => Video)
   videos!: Video[];

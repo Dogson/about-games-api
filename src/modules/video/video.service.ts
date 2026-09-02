@@ -86,8 +86,12 @@ export class VideoService {
     title: string,
     description: string,
   ): Promise<void> {
-    const prompt =
-      channel.get('gameCandidateAIPrompt') || DEFAULT_GAME_CANDIDATE_AI_PROMPT;
+    const channelPrompt = channel
+      .get('additionalGameCandidateAIPrompt')
+      ?.trim();
+    const prompt = channelPrompt
+      ? `${DEFAULT_GAME_CANDIDATE_AI_PROMPT}\n\nAdditional instructions:\n${channelPrompt}`
+      : DEFAULT_GAME_CANDIDATE_AI_PROMPT;
 
     const gameNames = await this.deepseekService.extractMainGameNames(
       prompt,

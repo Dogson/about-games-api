@@ -15,7 +15,7 @@ export interface ChannelResponseDto {
   thumbnailUrl?: string;
   language: string;
   parsingOptions: ParsingOptions;
-  gameCandidateAIPrompt?: string;
+  additionalGameCandidateAIPrompt?: string;
   videos?: Video[];
   videosCount?: number;
   createdAt?: Date;

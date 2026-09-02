@@ -33,5 +33,5 @@ export class CreateChannelDto {
 
   @IsOptional()
   @IsString()
-  gameCandidateAIPrompt?: string;
+  additionalGameCandidateAIPrompt?: string;
 }
