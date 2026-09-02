@@ -1,12 +1,14 @@
 export type IGDBGame = {
   id: number;
   name: string;
+  first_release_date?: number; // Unix timestamp for the earliest release date
   alternative_names?: {
     id: number;
     name: string;
   }[];
   release_dates?: {
-    date: number; // Unix timestamp for release date
+    id?: number;
+    date?: number; // Unix timestamp for release date, absent on TBD/partial dates
     // optionally: region, platform, etc.
   }[];
   involved_companies?: {

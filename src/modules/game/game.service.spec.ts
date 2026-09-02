@@ -408,7 +408,10 @@ describe('GameService', () => {
         coverImg: null,
         boxartImg: null,
       };
-      const gameA = cast<Game>({ id: 1 });
+      const gameA = cast<Game>({
+        id: 1,
+        get: (): unknown => new Date('2020-01-01'),
+      });
       const gameB = cast<Game>({ id: 2 });
 
       gameModel.findOrCreate
@@ -428,6 +431,59 @@ describe('GameService', () => {
         where: { igdbId: 2 },
         defaults: { ...dtoB },
       });
+    });
+
+    it('backfills the release date on an existing game when it is missing', async () => {
+      const dto: CreateGameDto = {
+        igdbId: 35626,
+        title: 'Golf Story',
+        releaseDate: new Date('2017-09-28'),
+        companies: [],
+        coverImg: null,
+        boxartImg: null,
+      };
+      const existingGame = cast<Game>({
+        id: 2544,
+        get: (key: string): unknown => {
+          if (key === 'releaseDate') return null;
+          return undefined;
+        },
+        update: jest.fn().mockResolvedValue(undefined),
+      });
+
+      gameModel.findOrCreate.mockResolvedValue([existingGame, false]);
+
+      await expect(service.findOrCreateGames([dto])).resolves.toEqual([
+        existingGame,
+      ]);
+      expect(existingGame.update).toHaveBeenCalledWith({
+        releaseDate: new Date('2017-09-28'),
+      });
+    });
+
+    it('does not overwrite an existing release date on an existing game', async () => {
+      const dto: CreateGameDto = {
+        igdbId: 1,
+        title: 'Game A',
+        releaseDate: new Date('2020-01-01'),
+        companies: [],
+        coverImg: null,
+        boxartImg: null,
+      };
+      const existingGame = cast<Game>({
+        id: 1,
+        get: (key: string): unknown => {
+          if (key === 'releaseDate') return new Date('2018-06-01');
+          return undefined;
+        },
+        update: jest.fn().mockResolvedValue(undefined),
+      });
+
+      gameModel.findOrCreate.mockResolvedValue([existingGame, false]);
+
+      await service.findOrCreateGames([dto]);
+
+      expect(existingGame.update).not.toHaveBeenCalled();
     });
   });
 
@@ -470,6 +526,62 @@ describe('GameService', () => {
         releaseDate: null,
         companies: [],
       });
+    });
+
+    it('uses first_release_date when no release_dates carry a date', () => {
+      const igdbGame: IGDBGame = {
+        id: 35626,
+        name: 'Golf Story',
+        first_release_date: 1506556800,
+        release_dates: [{ id: 574264 }, { id: 114179 }],
+      };
+
+      expect(service.mapIgdbGamesToCreateGamesDTO(igdbGame)).toEqual({
+        title: 'Golf Story',
+        igdbId: 35626,
+        boxartImg: null,
+        coverImg: null,
+        releaseDate: new Date(1506556800000),
+        companies: [],
+      });
+    });
+
+    it('uses first_release_date when release_dates is an empty array', () => {
+      const igdbGame: IGDBGame = {
+        id: 2,
+        name: 'Announced Game',
+        first_release_date: 1893456000,
+        release_dates: [],
+      };
+
+      const dto = service.mapIgdbGamesToCreateGamesDTO(igdbGame);
+
+      expect(dto.releaseDate).toEqual(new Date(1893456000000));
+    });
+
+    it('returns null instead of an invalid date when no date is available', () => {
+      const igdbGame: IGDBGame = {
+        id: 3,
+        name: 'Date-less Game',
+        release_dates: [{ id: 574264 }],
+      };
+
+      const dto = service.mapIgdbGamesToCreateGamesDTO(igdbGame);
+
+      expect(dto.releaseDate).toBeNull();
+    });
+
+    it('prefers the earliest release_dates date over first_release_date', () => {
+      const igdbGame: IGDBGame = {
+        id: 4,
+        name: 'Early Access Game',
+        first_release_date: 1691020800,
+        release_dates: [{ date: 1601942400 }, { date: 100 }],
+      };
+
+      const dto = service.mapIgdbGamesToCreateGamesDTO(igdbGame);
+
+      expect(dto.releaseDate).toEqual(new Date(100000));
     });
   });
 
@@ -542,6 +654,36 @@ describe('GameService', () => {
       );
     });
 
+    it('backfills the release date when the stored value is null', async () => {
+      const plain = {
+        id: 1,
+        title: 'Golf Story',
+        igdbId: 35626,
+        releaseDate: null,
+        companies: [],
+        coverImg: null,
+        boxartImg: null,
+      };
+      gameModel.findAll.mockResolvedValue([gameRow(plain)]);
+      igdbService.getIGDBGameById.mockResolvedValue({
+        id: 35626,
+        name: 'Golf Story',
+        first_release_date: 1506556800,
+        release_dates: [{ date: 1506556800 }],
+        involved_companies: [],
+      } as IGDBGame);
+      const updateSpy = jest
+        .spyOn(service, 'update')
+        .mockResolvedValue(cast<Game>({ id: 1 }));
+
+      await service.syncAllGamesWithIgdb();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ releaseDate: new Date(1506556800000) }),
+      );
+    });
+
     it('retries up to three times when IGDB answers 429', async () => {
       jest.useFakeTimers();
       try {
@@ -575,20 +717,44 @@ describe('GameService', () => {
       }
     });
 
-    it('rethrows non-rate-limit errors from IGDB', async () => {
-      const plain = {
+    it('logs non-rate-limit errors and keeps syncing the remaining games', async () => {
+      const brokenGame = gameRow({
         id: 1,
-        title: 'Game',
+        title: 'Broken',
         igdbId: 42,
         releaseDate: null,
         companies: [],
         coverImg: null,
         boxartImg: null,
-      };
-      gameModel.findAll.mockResolvedValue([gameRow(plain)]);
-      igdbService.getIGDBGameById.mockRejectedValue(new Error('boom'));
+      });
+      const healthyGame = gameRow({
+        id: 2,
+        title: 'The Witcher 3: Wild Hunt',
+        igdbId: 1942,
+        releaseDate: new Date(1420070400000),
+        companies: ['CD PROJEKT RED'],
+        coverImg: null,
+        boxartImg: null,
+      });
+      gameModel.findAll.mockResolvedValue([brokenGame, healthyGame]);
+      igdbService.getIGDBGameById
+        .mockRejectedValueOnce(new Error('boom'))
+        .mockResolvedValueOnce({
+          id: 1942,
+          name: 'The Witcher 3: Wild Hunt',
+          release_dates: [{ date: 1420070400 }],
+          involved_companies: [{ company: { id: 9, name: 'CD PROJEKT RED' } }],
+        });
 
-      await expect(service.syncAllGamesWithIgdb()).rejects.toThrow('boom');
+      await expect(service.syncAllGamesWithIgdb()).resolves.toBeUndefined();
+
+      expect(appLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to fetch IGDB game with id 42'),
+        expect.any(Error),
+      );
+      expect(appLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('already up-to-date'),
+      );
     });
   });
 

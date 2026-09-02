@@ -154,6 +154,11 @@ describe('IgdbService', () => {
           }),
         }),
       );
+      expect(postSpy).toHaveBeenCalledWith(
+        'https://igdb-host',
+        expect.stringContaining('first_release_date'),
+        expect.anything(),
+      );
       expect(result).toEqual(games);
     });
 
@@ -225,6 +230,11 @@ describe('IgdbService', () => {
         expect.stringContaining('where id=123;'),
         expect.anything(),
       );
+      expect(postSpy).toHaveBeenCalledWith(
+        'https://igdb-host',
+        expect.stringContaining('first_release_date'),
+        expect.anything(),
+      );
       expect(result).toEqual(games);
     });
   });
@@ -238,6 +248,12 @@ describe('IgdbService', () => {
         id: 1,
         name: 'Game',
       });
+
+      expect(postSpy).toHaveBeenCalledWith(
+        'https://igdb-host',
+        expect.stringContaining('first_release_date'),
+        expect.anything(),
+      );
     });
 
     it('returns null when no game matches the id', async () => {

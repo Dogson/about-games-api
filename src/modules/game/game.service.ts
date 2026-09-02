@@ -263,22 +263,44 @@ export class GameService {
         },
       });
 
+      if (!created && gameDto.releaseDate instanceof Date) {
+        const existingReleaseDate = foundGame.get('releaseDate');
+        if (existingReleaseDate === null || existingReleaseDate === undefined) {
+          await foundGame.update({ releaseDate: gameDto.releaseDate });
+        }
+      }
+
       return foundGame || created;
     });
 
     return await Promise.all(gamePromises);
   }
 
-  mapIgdbGamesToCreateGamesDTO(igdbGame: IGDBGame): CreateGameDto {
-    const firstReleaseDate =
-      igdbGame.release_dates && igdbGame.release_dates.length > 0
-        ? Math.min(
-            ...(igdbGame.release_dates || [])
-              .filter((date) => date.date)
-              .map((date) => date.date),
-          )
+  private computeReleaseDate(igdbGame: IGDBGame): Date | null {
+    const releaseDatesInSeconds = (igdbGame.release_dates ?? [])
+      .map((releaseDate) => releaseDate.date)
+      .filter((date): date is number => typeof date === 'number' && date > 0);
+
+    const earliestReleaseDateSeconds =
+      releaseDatesInSeconds.length > 0
+        ? Math.min(...releaseDatesInSeconds)
         : null;
 
+    const firstReleaseDateSeconds =
+      typeof igdbGame.first_release_date === 'number' &&
+      igdbGame.first_release_date > 0
+        ? igdbGame.first_release_date
+        : null;
+
+    const releaseDateSeconds =
+      earliestReleaseDateSeconds ?? firstReleaseDateSeconds;
+
+    return releaseDateSeconds === null
+      ? null
+      : new Date(releaseDateSeconds * 1000);
+  }
+
+  mapIgdbGamesToCreateGamesDTO(igdbGame: IGDBGame): CreateGameDto {
     return {
       title: igdbGame.name,
       igdbId: igdbGame.id,
@@ -288,11 +310,77 @@ export class GameService {
       coverImg: igdbGame.screenshots?.[0]?.url
         ? `https:${igdbGame.screenshots?.[0]?.url.replace('t_thumb', 't_1080p')}`
         : null,
-      releaseDate: firstReleaseDate ? new Date(firstReleaseDate * 1000) : null,
+      releaseDate: this.computeReleaseDate(igdbGame),
       companies: (igdbGame.involved_companies || []).map(
         (company) => company.company.name,
       ),
     };
+  }
+
+  private async syncGameWithIgdb(game: Game): Promise<void> {
+    const igdbId = game.get('igdbId');
+
+    let igdbGame: IGDBGame | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        igdbGame = await this.igdbService.getIGDBGameById(igdbId);
+        break;
+      } catch (error: unknown) {
+        if (axios.isAxiosError(error) && error.response?.status === 429) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          continue;
+        }
+        this.appLogger.error(
+          `Failed to fetch IGDB game with id ${String(igdbId)}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          error,
+        );
+        return;
+      }
+    }
+
+    if (!igdbGame) {
+      this.appLogger.warn(
+        `No IGDB data found for game with ID ${game.get('title')}`,
+      );
+      return;
+    }
+
+    const updateDTOFromIgdb = this.mapIgdbGamesToCreateGamesDTO(igdbGame);
+    const gameData = game.get({ plain: true }) as UpdateGameDto;
+
+    const keysToUpdate = (
+      Object.keys(updateDTOFromIgdb) as Array<keyof CreateGameDto>
+    ).filter((key) => {
+      if (!updateDTOFromIgdb[key] && !gameData[key]) {
+        return false;
+      }
+      if (Array.isArray(updateDTOFromIgdb[key])) {
+        return (
+          JSON.stringify(updateDTOFromIgdb[key]) !==
+          JSON.stringify(gameData[key])
+        );
+      }
+      if (key === 'releaseDate') {
+        return (
+          new Date(updateDTOFromIgdb[key] as Date).getTime() !==
+          new Date(gameData[key] as Date).getTime()
+        );
+      }
+      return updateDTOFromIgdb[key] !== gameData[key];
+    });
+
+    if (keysToUpdate.length > 0) {
+      await this.update(game.get('id'), updateDTOFromIgdb);
+      this.appLogger.log(
+        `Updated game ${game.get('title')} with new IGDB data : ${keysToUpdate.map((key) => `${key}=${String(updateDTOFromIgdb[key])}`).join(', ')}.`,
+      );
+    } else {
+      this.appLogger.log(
+        `Game ${game.get('title')} already up-to-date, nothing to update.`,
+      );
+    }
   }
 
   async syncAllGamesWithIgdb() {
@@ -300,62 +388,15 @@ export class GameService {
     const total = games.length;
 
     for (let i = 0; i < total; i++) {
-      const game = games[i];
-      const igdbId = game.get('igdbId');
-
-      let igdbGame: IGDBGame | null = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          igdbGame = await this.igdbService.getIGDBGameById(igdbId);
-          break;
-        } catch (error: unknown) {
-          if (axios.isAxiosError(error) && error.response?.status === 429) {
-            await new Promise((resolve) => setTimeout(resolve, 300));
-            continue;
-          }
-          throw error;
-        }
-      }
-
-      if (!igdbGame) {
-        console.warn(
-          `No IGDB data found for game with ID ${game.get('title')}`,
+      try {
+        await this.syncGameWithIgdb(games[i]);
+      } catch (error: unknown) {
+        this.appLogger.error(
+          `Failed to sync game ${games[i].get('title')}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          error,
         );
-      } else {
-        const updateDTOFromIgdb = this.mapIgdbGamesToCreateGamesDTO(igdbGame);
-        const gameData = game.get({ plain: true }) as UpdateGameDto;
-
-        const keysToUpdate = (
-          Object.keys(updateDTOFromIgdb) as Array<keyof CreateGameDto>
-        ).filter((key) => {
-          if (!updateDTOFromIgdb[key] && !gameData[key]) {
-            return false;
-          }
-          if (Array.isArray(updateDTOFromIgdb[key])) {
-            return (
-              JSON.stringify(updateDTOFromIgdb[key]) !==
-              JSON.stringify(gameData[key])
-            );
-          }
-          if (key === 'releaseDate') {
-            return (
-              new Date(updateDTOFromIgdb[key] as Date).getTime() !==
-              new Date(gameData[key] as Date).getTime()
-            );
-          }
-          return updateDTOFromIgdb[key] !== gameData[key];
-        });
-
-        if (keysToUpdate.length > 0) {
-          await this.update(game.get('id'), updateDTOFromIgdb);
-          this.appLogger.log(
-            `Updated game ${game.get('title')} with new IGDB data : ${keysToUpdate.map((key) => `${key}=${String(updateDTOFromIgdb[key])}`).join(', ')}.`,
-          );
-        } else {
-          this.appLogger.log(
-            `Game ${game.get('title')} already up-to-date, nothing to update.`,
-          );
-        }
       }
 
       const progress = createProgressBar(i + 1, total);
