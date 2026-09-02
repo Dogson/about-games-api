@@ -165,10 +165,14 @@ export class ChannelService {
     // Flatten parsingOptions if provided
     const updateData = this._flattenParsingOptions(updateChannelDto);
 
-    const playlistsIdsChanged =
-      updateChannelDto.parsingOptions?.playlistsIds !== undefined;
-    const ignoreEpisodesContainingChanged =
-      updateChannelDto.parsingOptions?.ignoreEpisodesContaining !== undefined;
+    const playlistsIdsChanged = this._stringListChanged(
+      updateChannelDto.parsingOptions?.playlistsIds,
+      existingChannel.get('playlistsIds'),
+    );
+    const ignoreEpisodesContainingChanged = this._stringListChanged(
+      updateChannelDto.parsingOptions?.ignoreEpisodesContaining,
+      existingChannel.get('ignoreEpisodesContaining'),
+    );
 
     await this.channelModel.update(updateData, {
       where: { id },
@@ -222,6 +226,30 @@ export class ChannelService {
       return flattened;
     }
     return rest;
+  }
+
+  private _stringListChanged(
+    incoming: string[] | undefined,
+    current: string[],
+  ): boolean {
+    if (incoming === undefined) {
+      return false;
+    }
+    if (incoming.length !== current.length) {
+      return true;
+    }
+    const currentCounts = new Map<string, number>();
+    for (const value of current) {
+      currentCounts.set(value, (currentCounts.get(value) ?? 0) + 1);
+    }
+    for (const value of incoming) {
+      const remaining = currentCounts.get(value);
+      if (remaining === undefined || remaining <= 0) {
+        return true;
+      }
+      currentCounts.set(value, remaining - 1);
+    }
+    return false;
   }
 
   async remove(id: number): Promise<void> {
