@@ -31,7 +31,7 @@ export function removePossessives(input: string): string {
 }
 
 export function normalizeGameName(str: string): string {
-  return removeAllAccents(
-    removeAllWhitespaces(normalizeString(removePossessives(str))),
+  return removeAllWhitespaces(
+    normalizeString(removeAllAccents(removePossessives(str))),
   );
 }

@@ -91,11 +91,31 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "moduleNameMapper": {
+      "^src/(.*)$": "<rootDir>/$1"
+    },
+    "collectCoverage": true,
+    "silent": true,
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/*.spec.ts",
+      "!testing/**",
+      "!**/*.module.ts",
+      "!main.ts",
+      "!**/entities/**",
+      "!**/dto/**",
+      "!**/*.d.ts"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "statements": 85,
+        "branches": 70,
+        "functions": 85,
+        "lines": 85
+      }
+    }
   },
   "lint-staged": {
     "*.{ts,js}": [

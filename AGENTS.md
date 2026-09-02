@@ -59,3 +59,11 @@ This repository is a **NestJS 11 + MySQL (Sequelize)** REST API that links **You
 - **Don't** put SQL or business logic in controllers.
 - **Don't** duplicate magic strings for routes or env keys.
 - **Don't** leave dead code, stub methods returning placeholder strings, or unused variables.
+
+## Testing
+
+- Unit specs live next to the code (`*.spec.ts`) and are **DB-free and network-free**: mock Sequelize models with `createModelMock()` and external HTTP with `jest.spyOn(axios, ...)` — never hit MySQL, IGDB, YouTube or DeepSeek in a test.
+- Reuse the test-only helpers in `src/testing/` (`cast`, `createModelMock`, `createAppLoggerMock`, `flushMicrotasks`) instead of writing raw `as any` casts in specs.
+- Capture arguments from mocks via typed `mockImplementation((arg: unknown) => { ... })` closures rather than reading `mock.calls` (avoids unsafe access under `recommendedTypeChecked`).
+- The e2e suite (`test/app.e2e-spec.ts`) boots a DB-free application: real controllers, guards, `ValidationPipe` and `SequelizeExceptionFilter` with every service provider overridden. Run it with `npm run test:e2e`.
+- Coverage thresholds are enforced by `npm test` (`collectCoverage`). Keep entity/dto wiring specs meaningful but coverage focuses on services/controllers/helpers. Add a test whenever you add or refactor behavior; run `npm test` before finishing.
