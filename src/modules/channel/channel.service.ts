@@ -173,6 +173,9 @@ export class ChannelService {
       updateChannelDto.parsingOptions?.ignoreEpisodesContaining,
       existingChannel.get('ignoreEpisodesContaining'),
     );
+    const additionalGameCandidateAIPromptChanged =
+      (updateChannelDto.additionalGameCandidateAIPrompt?.trim() ?? '') !==
+      (existingChannel.additionalGameCandidateAIPrompt?.trim() ?? '');
 
     await this.channelModel.update(updateData, {
       where: { id },
@@ -188,6 +191,15 @@ export class ChannelService {
         `Parsing options updated for channel "${existingChannel.get('name')}" (ID: ${id}), erasing non-validated videos and refetching...`,
       );
       void this._refetchVideosForChannel(id, false);
+    } else if (additionalGameCandidateAIPromptChanged) {
+      this.appLogger.log(
+        `AI game prompt updated for channel "${existingChannel.get('name')}" (ID: ${id}), regenerating games for non-validated videos...`,
+      );
+      await this.videoModel.update(
+        { hasSearchedGames: false },
+        { where: { ytChannelId: id, validated: { [Op.not]: true } } },
+      );
+      void this._processGameGeneration(id);
     }
 
     const updatedChannel = await this.channelModel.findByPk(id, {
