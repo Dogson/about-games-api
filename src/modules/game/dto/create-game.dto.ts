@@ -16,9 +16,14 @@ export class CreateGameDto {
   @IsString()
   title!: string;
 
-  @Transform(({ value }) => new Date(value as string))
+  @Transform(({ value }) =>
+    value === null || value === undefined || value === ''
+      ? null
+      : new Date(value as string),
+  )
+  @IsOptional()
   @IsDate()
-  releaseDate!: Date | null; // Use ISO date string for DTO
+  releaseDate!: Date | null; // ISO date string or null when the date is unknown
 
   @IsArray()
   @IsString({ each: true })

@@ -229,6 +229,58 @@ describe('API (e2e, DB-free)', () => {
       expect(response.body).toEqual({ id: 1 });
     });
 
+    it('POST /games keeps a null release date as null', async () => {
+      const gameServiceTyped = gameService as {
+        create: jest.Mock;
+      };
+      gameServiceTyped.create.mockResolvedValue({ id: 1 });
+
+      await request(app.getHttpServer())
+        .post('/games')
+        .set(authed(validToken()))
+        .send({
+          igdbId: 1,
+          title: 'Game',
+          releaseDate: null,
+          companies: ['A'],
+        })
+        .expect(201);
+
+      expect(gameServiceTyped.create).toHaveBeenCalledWith(
+        expect.objectContaining({ releaseDate: null }),
+      );
+    });
+
+    it('PATCH /videos keeps a null release date on nested games', async () => {
+      const videoServiceTyped = videoService as {
+        update: jest.Mock;
+      };
+      videoServiceTyped.update.mockResolvedValue({ id: 1 });
+
+      await request(app.getHttpServer())
+        .patch('/videos/1')
+        .set(authed(validToken()))
+        .send({
+          title: 'Video',
+          games: [
+            {
+              igdbId: 1,
+              title: 'Game',
+              releaseDate: null,
+              companies: ['A'],
+            },
+          ],
+        })
+        .expect(200);
+
+      expect(videoServiceTyped.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          games: [expect.objectContaining({ releaseDate: null })],
+        }),
+      );
+    });
+
     it('POST /auth/login returns a token for valid credentials', async () => {
       authService.validateUser.mockResolvedValue({
         id: 1,

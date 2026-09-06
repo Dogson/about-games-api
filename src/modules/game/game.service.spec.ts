@@ -485,6 +485,31 @@ describe('GameService', () => {
 
       expect(existingGame.update).not.toHaveBeenCalled();
     });
+
+    it('clears the stored release date when the incoming dto carries null', async () => {
+      const dto: CreateGameDto = {
+        igdbId: 1,
+        title: 'Date-less Game',
+        releaseDate: null,
+        companies: [],
+        coverImg: null,
+        boxartImg: null,
+      };
+      const existingGame = cast<Game>({
+        id: 1,
+        get: (key: string): unknown => {
+          if (key === 'releaseDate') return new Date('2018-06-01');
+          return undefined;
+        },
+        update: jest.fn().mockResolvedValue(undefined),
+      });
+
+      gameModel.findOrCreate.mockResolvedValue([existingGame, false]);
+
+      await service.findOrCreateGames([dto]);
+
+      expect(existingGame.update).toHaveBeenCalledWith({ releaseDate: null });
+    });
   });
 
   describe('mapIgdbGamesToCreateGamesDTO', () => {
@@ -681,6 +706,64 @@ describe('GameService', () => {
       expect(updateSpy).toHaveBeenCalledWith(
         1,
         expect.objectContaining({ releaseDate: new Date(1506556800000) }),
+      );
+    });
+
+    it('clears a stored release date when IGDB reports none', async () => {
+      const plain = {
+        id: 1,
+        title: 'Date-less Game',
+        igdbId: 35626,
+        releaseDate: new Date(1506556800000),
+        companies: [],
+        coverImg: null,
+        boxartImg: null,
+      };
+      gameModel.findAll.mockResolvedValue([gameRow(plain)]);
+      igdbService.getIGDBGameById.mockResolvedValue({
+        id: 35626,
+        name: 'Date-less Game',
+        release_dates: [{ id: 574264 }],
+        involved_companies: [],
+      } as IGDBGame);
+      const updateSpy = jest
+        .spyOn(service, 'update')
+        .mockResolvedValue(cast<Game>({ id: 1 }));
+
+      await service.syncAllGamesWithIgdb();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ releaseDate: null }),
+      );
+    });
+
+    it('repairs a stored epoch date when IGDB reports none', async () => {
+      const plain = {
+        id: 1,
+        title: 'Legacy Game',
+        igdbId: 35626,
+        releaseDate: new Date(0),
+        companies: [],
+        coverImg: null,
+        boxartImg: null,
+      };
+      gameModel.findAll.mockResolvedValue([gameRow(plain)]);
+      igdbService.getIGDBGameById.mockResolvedValue({
+        id: 35626,
+        name: 'Legacy Game',
+        release_dates: [{ id: 574264 }],
+        involved_companies: [],
+      } as IGDBGame);
+      const updateSpy = jest
+        .spyOn(service, 'update')
+        .mockResolvedValue(cast<Game>({ id: 1 }));
+
+      await service.syncAllGamesWithIgdb();
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ releaseDate: null }),
       );
     });
 

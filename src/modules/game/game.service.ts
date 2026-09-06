@@ -263,10 +263,21 @@ export class GameService {
         },
       });
 
-      if (!created && gameDto.releaseDate instanceof Date) {
+      if (!created) {
         const existingReleaseDate = foundGame.get('releaseDate');
-        if (existingReleaseDate === null || existingReleaseDate === undefined) {
-          await foundGame.update({ releaseDate: gameDto.releaseDate });
+        if (gameDto.releaseDate instanceof Date) {
+          if (
+            existingReleaseDate === null ||
+            existingReleaseDate === undefined
+          ) {
+            await foundGame.update({ releaseDate: gameDto.releaseDate });
+          }
+        } else if (
+          gameDto.releaseDate === null &&
+          existingReleaseDate !== null &&
+          existingReleaseDate !== undefined
+        ) {
+          await foundGame.update({ releaseDate: null });
         }
       }
 
@@ -298,6 +309,16 @@ export class GameService {
     return releaseDateSeconds === null
       ? null
       : new Date(releaseDateSeconds * 1000);
+  }
+
+  private toReleaseDateMs(
+    value: Date | string | null | undefined,
+  ): number | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? null : time;
   }
 
   mapIgdbGamesToCreateGamesDTO(igdbGame: IGDBGame): CreateGameDto {
@@ -364,8 +385,8 @@ export class GameService {
       }
       if (key === 'releaseDate') {
         return (
-          new Date(updateDTOFromIgdb[key] as Date).getTime() !==
-          new Date(gameData[key] as Date).getTime()
+          this.toReleaseDateMs(updateDTOFromIgdb[key]) !==
+          this.toReleaseDateMs(gameData[key])
         );
       }
       return updateDTOFromIgdb[key] !== gameData[key];
