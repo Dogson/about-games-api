@@ -52,6 +52,7 @@ async function main() {
     port: Number(DB_PORT),
     user: DB_USERNAME,
     password: DB_PASSWORD,
+    charset: 'utf8mb4',
     multipleStatements: true,
   });
 
