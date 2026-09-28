@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SequelizeExceptionFilter } from './filters/sequelize-exception.filter';
+import { parseCorsOrigins } from './config/cors.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,9 +19,9 @@ async function bootstrap() {
 
   app.useGlobalFilters(new SequelizeExceptionFilter());
 
-  // Enable CORS for all localhost origins
+  // Enable CORS for the configured origins (defaults to all localhost origins)
   app.enableCors({
-    origin: /http:\/\/localhost:\d+/,
+    origin: parseCorsOrigins(configService.get<string>('CORS_ORIGINS')),
     credentials: true, // if you want cookies/auth headers to work
   });
 
