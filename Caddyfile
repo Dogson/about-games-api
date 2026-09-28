@@ -1,0 +1,6 @@
+api.aboutgames.gwen.cool {
+	encode gzip
+	reverse_proxy api:5000 {
+		flush_interval -1
+	}
+}
