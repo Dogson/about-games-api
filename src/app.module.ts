@@ -26,6 +26,7 @@ import { LoggingModule } from './modules/logging/logging.module';
           synchronize: true,
           sync: { alter: true },
           dialect: 'mysql',
+          dialectOptions: { charset: 'utf8mb4' },
           host: configService.get<string>('DB_HOST'),
           port: Number(configService.get<number>('DB_PORT')),
           username: configService.get<string>('DB_USERNAME'),
