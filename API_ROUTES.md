@@ -68,13 +68,15 @@ Tokens are issued by `POST /auth/login`. The SSE endpoint (`GET /logs/stream`) a
 
 ### Users — `/users`
 
-| Method | Path         | Auth   | Body / Query                  | Returns          | Description                               |
-| ------ | ------------ | ------ | ----------------------------- | ---------------- | ----------------------------------------- |
-| POST   | `/users`     | JWT    | Body: empty DTO               | `string`         | Creates a user (stub — not implemented)   |
-| GET    | `/users`     | public | —                             | `UserResource[]` | Lists all users                           |
-| GET    | `/users/:id` | public | —                             | `string`         | Returns one user (stub — not implemented) |
-| PATCH  | `/users/:id` | JWT    | Body: partial `CreateUserDto` | `string`         | Updates a user (stub — not implemented)   |
-| DELETE | `/users/:id` | JWT    | —                             | `string`         | Deletes a user (stub — not implemented)   |
+| Method | Path         | Auth | Body / Query                                                                                                                                    | Returns            | Description                                    |
+| ------ | ------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ---------------------------------------------- |
+| POST   | `/users`     | JWT  | Body: empty DTO                                                                                                                                 | `string`           | Creates a user (stub — not implemented)        |
+| GET    | `/users`     | JWT  | Query: `page?` (min 1), `limit?` (min 1), `search?`, `sortBy?` (`id` \| `username` \| `created_at` \| `updated_at`), `order?` (`ASC` \| `DESC`) | `UserListEnvelope` | Lists users, paginated; never returns the hash |
+| GET    | `/users/:id` | JWT  | —                                                                                                                                               | `string`           | Returns one user (stub — not implemented)      |
+| PATCH  | `/users/:id` | JWT  | Body: partial `CreateUserDto`                                                                                                                   | `string`           | Updates a user (stub — not implemented)        |
+| DELETE | `/users/:id` | JWT  | —                                                                                                                                               | `string`           | Deletes a user (stub — not implemented)        |
+
+> All `/users` routes require a JWT — including reads. `GET /users` returns a paginated envelope and **excludes** `passwordHash`.
 
 ### Logs — `/logs`
 
@@ -82,6 +84,8 @@ Tokens are issued by `POST /auth/login`. The SSE endpoint (`GET /logs/stream`) a
 | ------ | -------------- | ------------------------------------ | --------------------------- | --------------------------------- |
 | GET    | `/logs/stream` | JWT (Bearer header **or** `?token=`) | SSE frame: `data: LogEvent` | Server-Sent Events stream of logs |
 | GET    | `/logs/last`   | JWT                                  | `LogEvent[]`                | Returns the last 100 logs         |
+
+Write operations (create/update/delete), the sync/search endpoints, and **all `/users` routes** require a JWT access token from `POST /auth/login` (`Authorization: Bearer <token>`). The other read-only listing/detail endpoints are public.
 
 ## Response types
 
@@ -361,17 +365,29 @@ ChannelBase & {
 
 ### Users
 
-**`UserResource`** — `GET /users` serializes the DB row as-is.
+**`UserListItem`** — one element of `GET /users`. The bcrypt `passwordHash` is never serialized.
 
 <!-- prettier-ignore -->
 ```ts
 {
   id: number
   username: string
-  passwordHash: string   // bcrypt hash — exposed by the current implementation
   admin: boolean
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
+}
+```
+
+**`UserListEnvelope`** — `GET /users`.
+
+<!-- prettier-ignore -->
+```ts
+{
+  data: UserListItem[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
 }
 ```
 
@@ -395,4 +411,4 @@ ChannelBase & {
 - `Routes.COMPANIES` (`/companies`) is declared in `src/routes.config.ts` but has no controller or endpoint yet.
 - Route prefixes and auth guards are defined in `src/routes.config.ts` and `src/modules/*/*.controller.ts`.
 - Empty responses: every `DELETE` endpoint returns an empty body with HTTP `200`, except `DELETE /channels/:id` which returns HTTP `204`. `PATCH /games/syncAllGames` and `PATCH /channels/syncAllYoutubeChannels` also return an empty body (they perform their work during the request and report progress through the log stream).
-- The users module is only partially implemented: `POST /users`, `GET /users/:id`, `PATCH /users/:id` and `DELETE /users/:id` currently return placeholder strings. `GET /users` is public and serializes rows including the bcrypt `passwordHash` — likely a bug worth fixing.
+- The users module is only partially implemented: `POST /users`, `GET /users/:id`, `PATCH /users/:id` and `DELETE /users/:id` currently return placeholder strings. `GET /users` is JWT-protected, paginated, and no longer serializes the bcrypt `passwordHash`.
