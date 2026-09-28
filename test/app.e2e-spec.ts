@@ -197,6 +197,38 @@ describe('API (e2e, DB-free)', () => {
     });
   });
 
+  describe('users routes', () => {
+    it('GET /users requires auth and never leaks password hashes', async () => {
+      userService.findAll.mockResolvedValue({
+        data: [{ id: 1, username: 'alice', admin: true }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      });
+
+      await request(app.getHttpServer()).get('/users').expect(401);
+
+      const response = await request(app.getHttpServer())
+        .get('/users?page=1&limit=20')
+        .set(authed(validToken()))
+        .expect(200);
+
+      expect(response.body.data[0]).not.toHaveProperty('passwordHash');
+      expect(response.body).toEqual({
+        data: [{ id: 1, username: 'alice', admin: true }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      });
+      expect(userService.findAll).toHaveBeenCalledWith({
+        page: 1,
+        limit: 20,
+      });
+    });
+  });
+
   describe('authentication', () => {
     it('guards write routes behind a valid JWT', async () => {
       const gameServiceTyped = gameService as {

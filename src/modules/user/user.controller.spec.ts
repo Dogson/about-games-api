@@ -27,9 +27,9 @@ describe('UserController', () => {
     controller = moduleRef.get(UserController);
   });
 
-  it('delegates findAll and findOne with a numeric id', async () => {
-    await controller.findAll();
-    expect(userService.findAll).toHaveBeenCalled();
+  it('delegates findAll with the query and findOne with a numeric id', async () => {
+    await controller.findAll({ page: 1, limit: 10 });
+    expect(userService.findAll).toHaveBeenCalledWith({ page: 1, limit: 10 });
 
     await controller.findOne('5');
     expect(userService.findOne).toHaveBeenCalledWith(5);
