@@ -394,11 +394,6 @@ export class ChannelService {
       await this.videoService.syncVideosFromYoutube(channel);
     }
 
-    this.appLogger.log('Purging all Shorts videos from all channels...');
-    for (const channel of channels) {
-      await this.videoService.purgeShortsFromChannel(channel);
-    }
-
     this.appLogger.log('Generating games for unsearched videos...');
     for (const channel of channels) {
       const unsearchedCount = await this.videoModel.count({
@@ -533,14 +528,21 @@ export class ChannelService {
         return true;
       });
 
-    let shortsCount = 0;
+    const isYoutubeShortByVideoId = new Map<string, boolean>();
     await Promise.all(
       videoDtos.map(async (video) => {
-        if (await this.youtubeService.isYoutubeShort(video.youtubeId)) {
-          video.ignored = true;
-          shortsCount++;
-        }
+        isYoutubeShortByVideoId.set(
+          video.youtubeId,
+          await this.youtubeService.isYoutubeShort(video.youtubeId),
+        );
       }),
+    );
+
+    const shortsCount = videoDtos.filter((video) =>
+      isYoutubeShortByVideoId.get(video.youtubeId),
+    ).length;
+    const videoDtosToCreate = videoDtos.filter(
+      (video) => !isYoutubeShortByVideoId.get(video.youtubeId),
     );
 
     this.appLogger.log(
@@ -549,14 +551,12 @@ export class ChannelService {
     this.appLogger.log(
       `Ignored ${ignoredVideosCount} videos based on ignore patterns`,
     );
-    this.appLogger.log(
-      `Detected ${shortsCount} Shorts videos marked as ignored`,
-    );
+    this.appLogger.log(`Skipped ${shortsCount} Shorts videos`);
 
     let videoIndex = 0;
-    for (const videoDto of videoDtos) {
+    for (const videoDto of videoDtosToCreate) {
       this.appLogger.log(
-        `${channel.name} : Vidéo ${videoIndex + 1} / ${videoDtos.length} ${createProgressBar(videoIndex + 1, videoDtos.length)}`,
+        `${channel.name} : Vidéo ${videoIndex + 1} / ${videoDtosToCreate.length} ${createProgressBar(videoIndex + 1, videoDtosToCreate.length)}`,
       );
       try {
         await this.videoService.create(videoDto);

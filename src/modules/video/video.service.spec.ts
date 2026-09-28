@@ -51,7 +51,7 @@ describe('VideoService', () => {
     Pick<GameService, 'mapIgdbGamesToCreateGamesDTO' | 'findOrCreateGames'>
   >;
   let youtubeService: jest.Mocked<
-    Pick<YoutubeService, 'getAllVideosFromPlaylists' | 'isYoutubeShort'>
+    Pick<YoutubeService, 'getAllVideosFromPlaylists'>
   >;
   let channelService: jest.Mocked<Pick<ChannelService, 'findOne'>>;
   let deepseekService: jest.Mocked<
@@ -105,9 +105,8 @@ describe('VideoService', () => {
     >;
     youtubeService = {
       getAllVideosFromPlaylists: jest.fn(),
-      isYoutubeShort: jest.fn(),
     } as unknown as jest.Mocked<
-      Pick<YoutubeService, 'getAllVideosFromPlaylists' | 'isYoutubeShort'>
+      Pick<YoutubeService, 'getAllVideosFromPlaylists'>
     >;
     channelService = {
       findOne: jest.fn(),
@@ -433,61 +432,6 @@ describe('VideoService', () => {
       ).resolves.toBeUndefined();
       expect(appLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('Failed to remove deleted videos'),
-      );
-    });
-  });
-
-  describe('purgeShortsFromChannel', () => {
-    it('destroys videos detected as Shorts', async () => {
-      const short = modelInstance<Video>({
-        id: 1,
-        youtubeId: 'short-1',
-        title: 'Clip',
-        destroy: jest.fn().mockResolvedValue(undefined),
-      });
-      const regular = modelInstance<Video>({
-        id: 2,
-        youtubeId: 'video-1',
-        title: 'Long video',
-        destroy: jest.fn().mockResolvedValue(undefined),
-      });
-      const channel = modelInstance<Channel>({
-        id: 3,
-        name: 'My Channel',
-        videos: [short, regular],
-      });
-      youtubeService.isYoutubeShort
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
-
-      await service.purgeShortsFromChannel(channel);
-
-      expect(short.destroy).toHaveBeenCalled();
-      expect(regular.destroy).not.toHaveBeenCalled();
-      expect(appLogger.log).toHaveBeenCalledWith(
-        expect.stringContaining('Removed 1 Shorts videos'),
-      );
-    });
-
-    it('does nothing when no video is a Short', async () => {
-      const video = modelInstance<Video>({
-        id: 1,
-        youtubeId: 'video-1',
-        title: 'Long video',
-        destroy: jest.fn().mockResolvedValue(undefined),
-      });
-      const channel = modelInstance<Channel>({
-        id: 3,
-        name: 'My Channel',
-        videos: [video],
-      });
-      youtubeService.isYoutubeShort.mockResolvedValue(false);
-
-      await service.purgeShortsFromChannel(channel);
-
-      expect(video.destroy).not.toHaveBeenCalled();
-      expect(appLogger.log).not.toHaveBeenCalledWith(
-        expect.stringContaining('Removed 1 Shorts videos'),
       );
     });
   });

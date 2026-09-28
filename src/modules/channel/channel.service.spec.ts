@@ -69,10 +69,7 @@ describe('ChannelService', () => {
   let videoService: jest.Mocked<
     Pick<
       VideoService,
-      | 'create'
-      | 'syncVideosFromYoutube'
-      | 'purgeShortsFromChannel'
-      | 'regenerateGamesForVideo'
+      'create' | 'syncVideosFromYoutube' | 'regenerateGamesForVideo'
     >
   >;
   let appLogger: ReturnType<typeof createAppLoggerMock>;
@@ -98,15 +95,11 @@ describe('ChannelService', () => {
     videoService = {
       create: jest.fn(),
       syncVideosFromYoutube: jest.fn(),
-      purgeShortsFromChannel: jest.fn(),
       regenerateGamesForVideo: jest.fn(),
     } as unknown as jest.Mocked<
       Pick<
         VideoService,
-        | 'create'
-        | 'syncVideosFromYoutube'
-        | 'purgeShortsFromChannel'
-        | 'regenerateGamesForVideo'
+        'create' | 'syncVideosFromYoutube' | 'regenerateGamesForVideo'
       >
     >;
     appLogger = createAppLoggerMock();
@@ -439,7 +432,7 @@ describe('ChannelService', () => {
       );
     });
 
-    it('filters out duplicate and ignored videos and marks Shorts as ignored', async () => {
+    it('filters out duplicate, ignored-pattern and Shorts videos', async () => {
       const channel = channelInstance({
         ...baseChannelFields,
         ignoreEpisodesContaining: ['/episode/i'],
@@ -465,14 +458,23 @@ describe('ChannelService', () => {
           publishedAt: '2020-01-02',
         },
         {
+          videoId: 'short-1',
+          title: 'Quick clip',
+          description: '',
+          thumbnailUrl: 'https://t',
+          publishedAt: '2020-01-03',
+        },
+        {
           videoId: 'trailer',
           title: 'New trailer',
           description: 'desc',
           thumbnailUrl: 'https://t',
-          publishedAt: '2020-01-03',
+          publishedAt: '2020-01-04',
         },
       ]);
-      youtubeService.isYoutubeShort.mockResolvedValue(true);
+      youtubeService.isYoutubeShort.mockImplementation(
+        async (videoId: string) => videoId === 'short-1',
+      );
       let createArg: unknown;
       videoService.create.mockImplementation(async (videoDto: unknown) => {
         createArg = videoDto;
@@ -481,14 +483,16 @@ describe('ChannelService', () => {
 
       await service.generateMissingVideosForAllChannels();
 
+      expect(youtubeService.isYoutubeShort).toHaveBeenCalledWith('short-1');
+      expect(youtubeService.isYoutubeShort).toHaveBeenCalledWith('trailer');
       expect(videoService.create).toHaveBeenCalledTimes(1);
       expect(createArg).toEqual({
         title: 'New trailer',
         description: 'desc',
         youtubeId: 'trailer',
-        releaseDate: '2020-01-03',
+        releaseDate: '2020-01-04',
         validated: false,
-        ignored: true,
+        ignored: false,
         thumbnailUrl: 'https://t',
         gamesFoundCount: 0,
         gamesCount: 0,
@@ -498,13 +502,13 @@ describe('ChannelService', () => {
         expect.stringContaining('Ignored 1 videos based on ignore patterns'),
       );
       expect(appLogger.log).toHaveBeenCalledWith(
-        expect.stringContaining('Detected 1 Shorts videos'),
+        expect.stringContaining('Skipped 1 Shorts videos'),
       );
     });
   });
 
   describe('syncAllYoutubeChannels', () => {
-    it('syncs infos, videos, shorts and games for every channel', async () => {
+    it('syncs infos, videos and games for every channel', async () => {
       const setMock = jest.fn();
       const changedMock = jest.fn().mockReturnValue(['name']);
       const previousMock = jest.fn().mockReturnValue('old name');
@@ -541,7 +545,6 @@ describe('ChannelService', () => {
       });
       expect(saveMock).toHaveBeenCalled();
       expect(videoService.syncVideosFromYoutube).toHaveBeenCalledWith(channel);
-      expect(videoService.purgeShortsFromChannel).toHaveBeenCalledWith(channel);
       expect(videoService.regenerateGamesForVideo).not.toHaveBeenCalled();
     });
   });
