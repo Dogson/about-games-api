@@ -2,9 +2,9 @@
 
 REST API built with **NestJS 11 + MySQL (Sequelize)**.
 
-- **Base URL**: `http://localhost:<PORT>/` (default port: `5000`)
+- **Base URL**: `http://localhost:<PORT>/` (default port: `5000`); production: `https://api.aboutgames.gwen.cool/`
 - **Global prefix**: none
-- **CORS**: any `http://localhost:<port>` origin, credentials allowed
+- **CORS**: origins from the comma-separated `CORS_ORIGINS` env var; defaults to any `http://localhost:<port>` origin. Credentials allowed.
 - **Validation**: global `ValidationPipe` (`whitelist: true`, `transform: true`)
 - **Errors**: typed HTTP exceptions; unique-constraint errors handled by the global `SequelizeExceptionFilter`
 - **Responses**: the `Returns` column of each table names a shape defined in [Response types](#response-types). Every shape is a plain JSON object spelled with primitive types only — no entity types (`Game`, `Video`, …) leak into the payloads. Dates serialize as ISO-8601 strings, nullable columns as `null`, and JSON-array columns as JSON arrays.
